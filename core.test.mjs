@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { PRICE_CATALOG, mergeCatalogPrices } from './price-catalog.mjs';
 import { BUILTIN_PROMPTS, promptLibrary, selectedPrompt, selectPrompt, DEFAULT_SETTINGS, validateSettings, redact, sanitizeStream, estimateTokens, priceUsage, readableRequest, initStats, foldStats } from './core.mjs';
 
 const rule = (patch = {}) => ({ provider: 'deepseek', model: 'model', currency: 'USD', input: 2, output: 8, cacheRead: 0.2, cacheWrite: 3, ...patch });
@@ -13,8 +14,8 @@ test('defaults and partial settings are complete, detached and configurable', ()
   const settings = validateSettings();
   assert.deepEqual(settings, DEFAULT_SETTINGS);
   assert.notEqual(settings.phrases, DEFAULT_SETTINGS.phrases);
-  assert.equal(settings.phrases.length, 20);
-  assert.equal(new Set(settings.phrases).size, 20);
+  assert.equal(settings.phrases.length, 76);
+  assert.equal(new Set(settings.phrases).size, 76);
   const input = { identityText: '{{literal}}', phrases: ['一步一步'], prices: [rule()] };
   const output = validateSettings(input);
   assert.equal(output.identityText, '{{literal}}');
@@ -23,6 +24,45 @@ test('defaults and partial settings are complete, detached and configurable', ()
   assert.equal(input.prices[0].input, 2);
   assert.equal(validateSettings({ rotationSeconds: 1.5 }).rotationSeconds, 1.5);
 });
+
+test('documented presets validate, preserve custom overrides and never price pending vendors',()=>{
+  const checked=validateSettings({prices:mergeCatalogPrices([])});assert.equal(checked.prices.length,5);
+  for(const entry of checked.prices){const price=priceUsage({inputTokens:1000,outputTokens:100},'channel',entry.model,checked.prices);assert.equal(price.known,true);assert.ok(price.source.includes('/blob/'));}
+  const custom={...PRICE_CATALOG.entries[0],input:99};const before=structuredClone(custom);const merged=mergeCatalogPrices([custom]);assert.equal(merged.length,5);assert.equal(merged.find(row=>row.model===custom.model).input,99);assert.deepEqual(custom,before);assert.notEqual(merged[0],custom);
+  assert.equal(priceUsage({inputTokens:1000,outputTokens:100},'channel','kimi-k3',checked.prices).known,false);
+});
+
+test('user reference groups validate without mixing currencies or peak/off selectors',()=>{
+  const groups=PRICE_CATALOG.groups;assert.equal(groups.length,6);assert.equal(groups.reduce((sum,group)=>sum+group.entries.length,0),21);
+  for(const group of groups){const prices=validateSettings({prices:mergeCatalogPrices([],group.entries)}).prices;assert.ok(prices.every(row=>row.label.includes('independently unverified')&&row.source.startsWith('user-provided:')));}
+  const select=id=>groups.find(group=>group.id===id).entries;
+  const usd=mergeCatalogPrices([],select('user-usd'));const merged=mergeCatalogPrices(usd,select('user-cn'));assert.equal(merged.find(row=>row.model==='kimi-k3').currency,'USD');assert.equal(merged.length,7);
+  const usage={inputTokens:10000,outputTokens:2000};assert.equal(priceUsage(usage,'p','kimi-k3',select('user-usd')).amount,.06);assert.equal(priceUsage(usage,'p','glm-5.3',select('user-usd')).amount,.0228);
+  const peak=select('user-deepseek-usd-peak'),off=select('user-deepseek-usd-off');assert.equal(priceUsage(usage,'p','deepseek-v4-pro',peak).amount,.02112);assert.equal(priceUsage(usage,'p','deepseek-v4-pro',off).amount,.01056);
+  assert.equal(mergeCatalogPrices(peak,off).length,2);assert.equal(mergeCatalogPrices(peak,off)[0].input,1.32);
+  assert.equal(priceUsage({inputTokens:1,outputTokens:1,cacheWriteTokens:1},'p','kimi-k3',usd).known,false);
+  assert.equal(priceUsage(usage,'p','glm-4.7-flash',select('user-cn')).amount,0);
+});
+
+test('strict catalog cache rates stay unknown without published cache evidence',()=>{
+  const prices=PRICE_CATALOG.entries;const model='MiniMax-M2.5';
+  assert.equal(priceUsage({inputTokens:1000000,outputTokens:1000000},'channel',model,prices).amount,1.35);
+  assert.equal(priceUsage({inputTokens:1,outputTokens:1,cacheReadTokens:10},'channel',model,prices).source,'missing-cache-rate');
+  assert.equal(priceUsage({inputTokens:1,outputTokens:1,cacheWriteTokens:10},'channel',model,prices).known,false);
+  assert.throws(()=>validateSettings({prices:[{...prices.find(row=>row.model==='MiniMax-M2.5'),requireCacheRates:'yes'}]}));
+});
+
+test('MiMo official example read rates are usable but example write-zero is not assumed free',()=>{
+  const price=priceUsage({inputTokens:1000000,outputTokens:1000000,cacheReadTokens:1000000},'channel','mimo-v2.5-pro',PRICE_CATALOG.entries);assert.equal(price.amount,4.2);
+  assert.equal(priceUsage({inputTokens:1,outputTokens:1,cacheWriteTokens:1},'channel','mimo-v2.5-pro',PRICE_CATALOG.entries).source,'missing-cache-rate');
+});
+
+test('lifetime cache accounting separates unreported fields from explicit zero',()=>{
+  let state=initStats();for(const[seq,usage]of[[1,{inputTokens:100,outputTokens:1}],[2,{inputTokens:10,cacheReadTokens:90,outputTokens:1}],[3,{inputTokens:20,cacheReadTokens:0,outputTokens:1}],[4,null]])state=foldStats(state,event('assistant/message',{message:{source:{provider:'p',model:'m'},content:[]},usage},seq));
+  assert.deepEqual(state.cacheAccounting,{reported:2,missing:2,input:120,read:90});
+});
+
+test('invalid inclusive cache counters stay unknown',()=>{assert.equal(priceUsage({inputTokens:10,outputTokens:1,cacheReadTokens:20,inputIncludesCache:true},'deepseek','model',[rule()]).source,'invalid-usage');});
 
 test('prompt library keeps original and generic presets and validates custom entries',()=>{
   const initial=validateSettings();
@@ -209,7 +249,7 @@ test('token estimate is approximate, deterministic and Unicode-safe', () => {
 test('pricing charges DSH disjoint buckets once and reasoning is part of output', () => {
   const usage = { inputTokens: 1_000_000, outputTokens: 500_000, cacheReadTokens: 250_000, cacheWriteTokens: 100_000, reasoningTokens: 300_000 };
   const result = priceUsage(usage, 'deepseek', 'model', [rule()]);
-  assert.deepEqual(result, { amount: 6.35, currency: 'USD', known: true, source: 'configured:deepseek/model' });
+  assert.deepEqual(result, { components:{input:2,output:4,cacheRead:.05,cacheWrite:.3},amount: 6.35, currency: 'USD', known: true, source: 'configured:deepseek/model' });
   assert.equal(priceUsage({ ...usage, totalTokens: 1, inputIncludesCache: false }, 'deepseek', 'model', [rule()]).amount, 6.35);
   assert.equal(priceUsage({ ...usage, reasoningTokens: 0 }, 'deepseek', 'model', [rule()]).amount, 6.35);
 });
@@ -254,6 +294,16 @@ test('official long-context rates use each request context including cached inpu
   assert.equal(priceUsage({inputTokens:0,cacheWriteTokens:1000,cacheWrite12hTokens:1000,outputTokens:0},'myapi','gpt-6.1-sol',[rule]).amount,.005);
   assert.equal(priceUsage({inputTokens:400000,outputTokens:0,pricingContextTokens:100000},'myapi','gpt-6.1-sol',[rule]).amount,.8);
   assert.throws(()=>validateSettings({prices:[{...rule,longContext:{...rule.longContext,threshold:1}}]}));
+});
+
+test('100K pricing boundary includes cached input and projection retains all three ranges',()=>{
+  const price={provider:'*',model:'haiku',currency:'USD',input:.1,output:.5,cacheRead:.01,longContext:{threshold:100000,input:.5,output:2.5,cacheRead:.05}};
+  assert.equal(priceUsage({inputTokens:100000,outputTokens:0},'p','haiku',[price]).amount,.01);
+  assert.equal(priceUsage({inputTokens:100000,cacheReadTokens:1,outputTokens:0},'p','haiku',[price]).amount,.05000005);
+  let state=initStats();for(const [i,inputTokens]of[100000,100001,272000,272001].entries())state=foldStats(freeze(state),event('assistant/message',{message:{source:{provider:'p',model:'haiku'},content:[]},usage:{inputTokens,outputTokens:0}},i+1));
+  assert.deepEqual(state.byModel[0].priceBands.map(band=>band.responses),[1,2,1]);
+  const total=state.byModel[0].priceBands.reduce((sum,band)=>sum+priceUsage({...band.usage,pricingContextTokens:band.pricingContextTokens},'p','haiku',[price]).amount,0);
+  const direct=[100000,100001,272000,272001].reduce((sum,inputTokens)=>sum+priceUsage({inputTokens,outputTokens:0},'p','haiku',[price]).amount,0);assert.ok(Math.abs(total-direct)<1e-12);
 });
 
 test('readable request preserves text, raw tool JSON and non-text identities', () => {

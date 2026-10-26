@@ -16,6 +16,10 @@
 - **Configurable prices:** provider/model precedence, cached input/write buckets, per-request context tiers, sources and review dates. Unknown is never free.
 - **One Host operation path:** the UI, `/atelier` and the `atelier` agent tool use the same settings and log operations.
 
+## What's new in 1.5.0
+
+Clickable metric popovers, per-currency cost breakdown, optional three-step setup, 76 original Chinese activity phrases, stable left-aligned workbench tabs, 100K/272K per-request pricing boundaries, and manual cache-prefix diagnosis. Cache ratios include explicit reporting coverage and an observed share; this does not claim improved provider caching. Five official-document/example snapshots and six **user-supplied, independently unverified** CNY/USD reference groups are available for draft-only import. No exchange conversion or automatic time-of-use billing is performed. See [price evidence](docs/price-evidence.md) and [cache diagnosis](docs/cache-diagnostics.md).
+
 ## Install
 
 Tested with **DSH 0.2.1-rc.3**. The manifest admits `>=0.2.1-rc.3 <0.3.0`; other releases in that range still need verification. Requires the shipped Host and Web Client services. Local development uses Node >=22.19.0 / pnpm 11.28.5.
@@ -23,7 +27,7 @@ Tested with **DSH 0.2.1-rc.3**. The manifest admits `>=0.2.1-rc.3 <0.3.0`; other
 In DSH **Plugins → Install**, enter:
 
 ```text
-dsh-atelier-plugin@1.4.1
+dsh-atelier-plugin@1.5.0
 ```
 
 Enable it, then open **Settings → Atelier**, or **Conversation → Atelier → Global settings**. Marketplace indexing is separate from npm publication; use the package name directly if search has not indexed it yet. Follow the manager's actual `applied` / `restart-required` result.
@@ -67,7 +71,7 @@ Identity reduction only changes known fixed identity/context contributions. Hist
 
 Costs are a cumulative **API-equivalent estimate for committed responses**, not credit balance, a single request, or the reseller invoice. Configure per-million-token rates in global settings. See [configuration](docs/configuration.md) for the schema.
 
-Exact provider rules outrank wildcard providers; exact model rules outrank model globs. DSH's uncached input, cache read and cache write buckets are disjoint. Reasoning tokens are already included in output and are not charged again. Context tiers are selected **per request**, then summed. The current tier extension supports a 272,000-token threshold.
+Exact provider rules outrank wildcard providers; exact model rules outrank model globs. DSH's uncached input, cache read and cache write buckets are disjoint. Reasoning tokens are already included in output and are not charged again. Context tiers are selected **per request**, then summed. The current development tier extension supports 100,000- and 272,000-token thresholds, retaining disjoint per-request ranges.
 
 Missing/invalid usage and unmatched pricing remain explicitly unknown, even if a known subtotal exists. Failed attempts may be billed by the supplier but are not in the committed-response total. Fast/Flex/Batch, taxes, regional uplifts, reseller multipliers and tool fees are not included. Cache-write TTL is not reported by the current DSH usage API; extended 12-hour counters are accepted only when explicitly supplied.
 

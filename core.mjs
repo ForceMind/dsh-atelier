@@ -6,6 +6,20 @@ const PHRASES = [
   '把可能性一一照亮', '给思路做一次温柔校准', '正在辨认问题的轮廓', '让代码与意图相互靠近',
   '把未知变成可验证的小步', '正在给答案搭稳地基', '从纷繁里提取一条清晰路径', '让每个假设都经得起追问',
   '正在连接刚刚发现的线索', '给结果留出复核的余地', '把思考折成可执行的步骤', '下一束灵感正在抵达',
+  '给逻辑积木找个稳当的位置', '在细节的草丛里寻找线索', '给散落的想法排个队', '让思路先转过这个弯',
+  '正在翻译问题的潜台词', '把复杂度一点点拆开', '给边界条件留一盏灯', '正在绕开想当然的小坑',
+  '把问题摊开再看一遍', '让假设排队接受检查', '正在寻找更短的解释路径', '把分支收拢成清晰路线',
+  '给这段逻辑梳个头', '正在和细节交换眼神', '让线索自己说话', '把模糊地带画得清楚一点',
+  '给思路留一条回来的路', '正在寻找恰到好处的切入点', '把大问题切成小块', '让每一步都有落脚点',
+  '在可能性之间架一座小桥', '给推理的齿轮添一点耐心', '正在分辨巧合与因果', '把线头从结里慢慢抽出来',
+  '让问题从侧面露出轮廓', '正在给下一步找坐标', '把复杂放进更简单的框架', '给思路做一次轻量整理',
+  '正在把疑问变成检查项', '让重要的细节浮上来', '在约束之间寻找平衡', '把每个条件放回合适的位置',
+  '给思路换一个观察角度', '正在为下一步预留空间', '把直觉交给证据复核', '让答案少一点想当然',
+  '正在整理脑海里的便利贴', '给问题的地图添一条路', '把零碎信息串成一条线', '正在寻找更稳妥的方案',
+  '让复杂的部分先坐下来聊聊', '给思路拧紧最后一颗螺丝', '把拐弯的逻辑慢慢拉直', '正在给关键细节做标记',
+  '让每条线索找到归宿', '在思路的岔路口看一看路牌', '给不确定性留一个位置', '把答案往清楚的方向推一点',
+  '正在给问题换一副眼镜', '让下一步保持小而可验证', '把思考的拼图逐块靠近', '给复杂问题按下慢放键',
+  '正在寻找遗漏的那一小块', '让逻辑和直觉再对一遍', '把待解的问题摆得更整齐', '下一条清晰的线索正在靠近',
 ];
 export const BUILTIN_PROMPTS = Object.freeze([
   Object.freeze({id:'dsh-original',name:'DSH 原版（恢复内置）',description:'不覆盖内置身份、软件说明或运行时上下文；保留当前 DSH 及其他插件动态组装的原版内容。',identityEnabled:false,identityText:'You are an AI agent powered by DeepSeek Harness.',extraPrompt:'',hideClientIdentity:false}),
@@ -14,6 +28,7 @@ export const BUILTIN_PROMPTS = Object.freeze([
 export const DEFAULT_SETTINGS = Object.freeze({
   identityEnabled: false, identityText: 'You are a helpful AI coding assistant.', extraPrompt: '',
   hideClientIdentity: false, chatDynamicLabels: false,
+  onboardingCompleted:false,
   captureEnabled: false, retentionDays: 14, maxLogMB: 256, rotationSeconds: 4,
   phrases: Object.freeze(PHRASES), prices: Object.freeze([]), promptLibrary: Object.freeze([]),
 });
@@ -39,7 +54,7 @@ function number(value, path, min, max, integer = false) {
   return value;
 }
 export const LONG_CONTEXT_THRESHOLD = 272000;
-const PRICE_KEYS = new Set(['provider', 'model', 'currency', 'input', 'output', 'cacheRead', 'cacheWrite', 'cacheWrite12h', 'longContext', 'source', 'checkedAt', 'label']);
+const PRICE_KEYS = new Set(['provider', 'model', 'currency', 'input', 'output', 'cacheRead', 'cacheWrite', 'cacheWrite12h', 'requireCacheRates', 'longContext', 'source', 'checkedAt', 'label']);
 function validatePrice(value, index) {
   const path = `prices[${index}]`;
   keys(value, PRICE_KEYS, path);
@@ -53,10 +68,11 @@ function validatePrice(value, index) {
   if (typeof value.currency !== 'string' || !/^[A-Z]{3}$/.test(value.currency)) throw new TypeError(`${path}.currency must be a three-letter uppercase currency code`);
   result.currency = value.currency;
   for (const key of ['input', 'output', 'cacheRead', 'cacheWrite', 'cacheWrite12h']) if (own(value, key)) result[key] = number(value[key], `${path}.${key}`, 0, 1_000_000);
+  if(own(value,'requireCacheRates')){if(typeof value.requireCacheRates!=='boolean')throw new TypeError(`${path}.requireCacheRates must be boolean`);result.requireCacheRates=value.requireCacheRates;}
   if (own(value,'longContext')) {
     keys(value.longContext,new Set(['threshold','input','output','cacheRead','cacheWrite','cacheWrite12h']),`${path}.longContext`);
-    if(value.longContext.threshold!==LONG_CONTEXT_THRESHOLD)throw new TypeError(`${path}.longContext.threshold must be ${LONG_CONTEXT_THRESHOLD}`);
-    result.longContext={threshold:LONG_CONTEXT_THRESHOLD};
+    if(![100000,LONG_CONTEXT_THRESHOLD].includes(value.longContext.threshold))throw new TypeError(`${path}.longContext.threshold must be 100000 or ${LONG_CONTEXT_THRESHOLD}`);
+    result.longContext={threshold:value.longContext.threshold};
     for(const key of ['input','output'])if(!own(value.longContext,key))throw new TypeError(`${path}.longContext.${key} required`);
     for(const key of ['input','output','cacheRead','cacheWrite','cacheWrite12h'])if(own(value.longContext,key))result.longContext[key]=number(value.longContext[key],`${path}.longContext.${key}`,0,1000000);
   }
@@ -67,7 +83,7 @@ function validatePrice(value, index) {
 export function validateSettings(input = {}) {
   keys(input, new Set(Object.keys(DEFAULT_SETTINGS)), 'settings');
   const result = { ...DEFAULT_SETTINGS, ...input };
-  for (const key of ['identityEnabled', 'captureEnabled', 'hideClientIdentity', 'chatDynamicLabels']) if (typeof result[key] !== 'boolean') throw new TypeError(`${key} must be boolean`);
+  for (const key of ['identityEnabled', 'captureEnabled', 'hideClientIdentity', 'chatDynamicLabels','onboardingCompleted']) if (typeof result[key] !== 'boolean') throw new TypeError(`${key} must be boolean`);
   result.identityText = text(result.identityText, 'identityText', 50_000);
   result.extraPrompt = text(result.extraPrompt, 'extraPrompt', 200_000);
   result.retentionDays = number(result.retentionDays, 'retentionDays', 1, 365, true);
@@ -205,6 +221,7 @@ export function estimateTokens(value) {
 }
 const COUNTS = ['inputTokens', 'outputTokens', 'cacheReadTokens', 'cacheWriteTokens', 'reasoningTokens'];
 const validCount = value => typeof value === 'number' && Number.isFinite(value) && value >= 0;
+const validUsage=value=>plain(value)&&!COUNTS.some(key=>own(value,key)&&!validCount(value[key]))&&(value.inputIncludesCache!==true||validCount(value.inputTokens)&&(value.cacheReadTokens??0)+(value.cacheWriteTokens??0)<=value.inputTokens);
 function emptyUsage() {
   return { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, reasoningTokens: 0, totalTokens: 0, inputIncludesCache: false };
 }
@@ -236,7 +253,7 @@ const unknownPrice = source => ({ amount: null, currency: null, known: false, so
  */
 export function priceUsage(usage, provider, model, prices = []) {
   if (!plain(usage) || !COUNTS.some(key => own(usage, key))) return unknownPrice('missing-usage');
-  if (COUNTS.some(key => own(usage, key) && !validCount(usage[key]))) return unknownPrice('invalid-usage');
+  if (!validUsage(usage)) return unknownPrice('invalid-usage');
   if (typeof provider !== 'string' || typeof model !== 'string' || !Array.isArray(prices)) return unknownPrice('unknown');
   const candidates = [];
   for (let index = 0; index < prices.length; index += 1) {
@@ -254,13 +271,17 @@ export function priceUsage(usage, provider, model, prices = []) {
   const counts = normalizeUsage(usage);
   const contextTokens=validCount(usage.pricingContextTokens)?usage.pricingContextTokens:counts.inputTokens+counts.cacheReadTokens+counts.cacheWriteTokens;
   const rates=rule.longContext&&contextTokens>rule.longContext.threshold?rule.longContext:rule;
+  if(rule.requireCacheRates&&((counts.cacheReadTokens>0&&rates.cacheRead===undefined)||(counts.cacheWriteTokens>0&&rates.cacheWrite===undefined)))return unknownPrice('missing-cache-rate');
   const write12h=Math.min(counts.cacheWriteTokens,validCount(usage.cacheWrite12hTokens)?usage.cacheWrite12hTokens:0);
-  const amount = (counts.inputTokens * rates.input + counts.outputTokens * rates.output
-    + counts.cacheReadTokens * (rates.cacheRead ?? rates.input)
-    + (counts.cacheWriteTokens-write12h) * (rates.cacheWrite ?? rates.input)
-    + write12h * (rates.cacheWrite12h ?? rates.cacheWrite ?? rates.input)) / 1_000_000;
+  const components={
+    input:counts.inputTokens*rates.input/1_000_000,
+    output:counts.outputTokens*rates.output/1_000_000,
+    cacheRead:counts.cacheReadTokens*(rates.cacheRead??rates.input)/1_000_000,
+    cacheWrite:((counts.cacheWriteTokens-write12h)*(rates.cacheWrite??rates.input)+write12h*(rates.cacheWrite12h??rates.cacheWrite??rates.input))/1_000_000,
+  };
+  const amount=Object.values(components).reduce((sum,value)=>sum+value,0);
   if (!Number.isFinite(amount)) return unknownPrice('invalid-usage');
-  return { amount: Number(amount.toFixed(12)), currency: rule.currency, known: true, source: rule.source?`${rule.source} (${rule.checkedAt??'date unspecified'}; ${rates===rule?'standard-short':'standard-long'}; API equivalent)`:`configured:${rule.provider}/${rule.model}` };
+  return { components:Object.fromEntries(Object.entries(components).map(([key,value])=>[key,Number(value.toFixed(12))])), amount: Number(amount.toFixed(12)), currency: rule.currency, known: true, source: rule.source?`${rule.source} (${rule.checkedAt??'date unspecified'}; ${rates===rule?'standard-short':'standard-long'}; API equivalent)`:`configured:${rule.provider}/${rule.model}` };
 }
 function printable(value) {
   if (typeof value === 'string') return value;
@@ -302,7 +323,7 @@ export function initStats() {
     provider: '', model: '', contextWindow: null, phase: 'idle', tool: null, pendingTools: [],
     turn: 0, step: 0, turnStartedAt: null, turnElapsedMs: 0, totalTurnElapsedMs: 0,
     turns: 0, endedTurns: 0, completedTurns: 0, requests: 0, attempts: 0, responses: 0, failedAttempts: 0,
-    headers: 0, usage: emptyUsage(), lastUsage: null, byModel: [], unknownUsageResponses: 0,
+    headers: 0, usage: emptyUsage(), cacheAccounting:{reported:0,missing:0,input:0,read:0}, lastUsage: null, byModel: [], unknownUsageResponses: 0,
     lastSeq: -1, lastTime: null, lastTurnReason: null,
   };
 }
@@ -366,22 +387,26 @@ export function foldStats(state, event) {
       const provider = typeof message.source?.provider === 'string' ? message.source.provider : current.provider;
       const model = typeof message.source?.model === 'string' ? message.source.model : current.model;
       result.phase = Array.isArray(message.content) && message.content.some(block => block?.type === 'tool-call') ? 'tool' : 'responding';
-      if (plain(data.usage) && validCount(data.usage.inputTokens) && validCount(data.usage.outputTokens) && !COUNTS.some(key=>own(data.usage,key)&&!validCount(data.usage[key]))) {
+      if (validUsage(data.usage) && validCount(data.usage.inputTokens) && validCount(data.usage.outputTokens)) {
         const usage = normalizeUsage(data.usage);
+        const cache={...(current.cacheAccounting??{reported:0,missing:0,input:0,read:0})};if(own(data.usage,'cacheReadTokens')){cache.reported++;cache.input+=usage.inputTokens+usage.cacheReadTokens+usage.cacheWriteTokens;cache.read+=usage.cacheReadTokens;}else cache.missing++;result.cacheAccounting=cache;
         result.lastUsage = { provider, model, ...usage };
         result.usage = addUsage(current.usage, usage);
         const index = current.byModel.findIndex(row => row.provider === provider && row.model === model);
         result.byModel = [...current.byModel];
         const previous=index<0?null:current.byModel[index];
-        const long=usage.inputTokens+usage.cacheReadTokens+usage.cacheWriteTokens>LONG_CONTEXT_THRESHOLD;
+        const contextTokens=usage.inputTokens+usage.cacheReadTokens+usage.cacheWriteTokens;
+        const bandIndex=contextTokens<=100000?0:contextTokens<=LONG_CONTEXT_THRESHOLD?1:2;
         const bands=previous?.priceBands??[
           {pricingContextTokens:0,responses:0,usage:emptyUsage()},
+          {pricingContextTokens:100001,responses:0,usage:emptyUsage()},
           {pricingContextTokens:LONG_CONTEXT_THRESHOLD+1,responses:0,usage:emptyUsage()},
         ];
-        const priceBands=bands.map((band,position)=>position===(long?1:0)?{...band,responses:band.responses+1,usage:addUsage(band.usage,usage)}:band);
+        const cacheKind=`${usage.cacheReadTokens>0?'r':''}${usage.cacheWriteTokens>0?'w':''}${(usage.cacheWrite12hTokens??0)>0?'l':''}`||'none';
+        const priceBands=bands.map((band,position)=>{if(position!==bandIndex)return band;const groups=[...(band.cacheGroups??[])];const groupIndex=groups.findIndex(group=>group.kind===cacheKind);const old=groups[groupIndex];const group={kind:cacheKind,responses:(old?.responses??0)+1,usage:addUsage(old?.usage??emptyUsage(),usage)};if(groupIndex<0)groups.push(group);else groups[groupIndex]=group;return {...band,responses:band.responses+1,usage:addUsage(band.usage,usage),cacheGroups:groups};});
         const row=previous?{...previous,responses:previous.responses+1,usage:addUsage(previous.usage,usage),priceBands}:{provider,model,responses:1,usage,priceBands};
         if(index<0)result.byModel.push(row);else result.byModel[index]=row;
-      } else result.unknownUsageResponses=(current.unknownUsageResponses??0)+1;
+      } else {result.unknownUsageResponses=(current.unknownUsageResponses??0)+1;result.cacheAccounting={...(current.cacheAccounting??{reported:0,missing:0,input:0,read:0}),missing:(current.cacheAccounting?.missing??0)+1};}
       break;
     }
     case 'assistant/attempt':

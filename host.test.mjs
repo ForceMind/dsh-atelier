@@ -136,8 +136,14 @@ test('official API equivalent totals sum short and long request buckets correctl
   h.feed('alpha',{type:'assistant/message',seq:2,data:response({inputTokens:200000,cacheReadTokens:73000,outputTokens:1000})});
   const status=await h.operate({action:'status'},'alpha');
   assert.ok(Math.abs(status.cost.totals.USD-1.2466)<1e-9);assert.equal(status.cost.unknown,0);
-  assert.equal(status.stats.byModel[0].priceBands[0].responses,1);assert.equal(status.stats.byModel[0].priceBands[1].responses,1);
+  assert.equal(status.stats.byModel[0].priceBands[1].responses,1);assert.equal(status.stats.byModel[0].priceBands[2].responses,1);
   assert.equal(status.cost.sources.length,2);
+});
+
+test('100K aggregate tier pricing agrees with direct per-request pricing',async t=>{
+  const h=await setup(t);await save(h,{prices:[{provider:'provider',model:'model',currency:'USD',input:.1,output:.5,cacheRead:.01,longContext:{threshold:100000,input:.5,output:2.5,cacheRead:.05}}]});
+  for(const[seq,inputTokens]of[[1,100000],[2,100001],[3,300000]])h.feed('alpha',{type:'assistant/message',seq,data:{message:{source:{provider:'provider',model:'model'},content:[]},usage:{inputTokens,outputTokens:0}}});
+  const {cost,stats}=await h.operate({action:'status'},'alpha');assert.ok(Math.abs(cost.totals.USD-.2100005)<1e-12);assert.deepEqual(stats.byModel[0].priceBands.map(band=>band.responses),[1,1,1]);
 });
 
 test('prompt rebind and both agent/plugin teardown remove registrations',async t=>{
@@ -196,6 +202,35 @@ test('missing or invalid usage remains explicitly unknown in aggregate cost',asy
   h.feed('alpha',event(1,{inputTokens:0,outputTokens:0,cacheWriteTokens:1000,cacheWrite12hTokens:1000}));
   h.feed('alpha',event(2,undefined));h.feed('alpha',event(3,{}));h.feed('alpha',event(4,{inputTokens:-1,outputTokens:0}));
   const status=await h.operate({action:'status'},'alpha');assert.equal(status.stats.responses,4);assert.equal(status.cost.unknown,3);assert.equal(status.cost.totals.USD,.006);
+});
+
+test('settings exposes documented price presets without silently replacing user pricing',async t=>{
+  const h=await setup(t);const result=await h.operate({action:'settings'});
+  assert.deepEqual(result.settings.prices,[]);assert.equal(result.priceCatalog.groups.length,6);assert.ok(result.priceCatalog.groups.every(group=>group.basis==='user-supplied-unverified'));assert.equal(result.priceCatalog.entries.length,5);assert.ok(result.priceCatalog.entries.every(row=>row.source.includes('/blob/')&&!row.model.includes('*')));assert.ok(result.priceCatalog.pending.some(row=>row.vendor==='Kimi'));
+});
+
+test('strict cache unknowns do not erase known costs in the same context tier',async t=>{
+  const h=await setup(t);await save(h,{prices:[{provider:'provider',model:'model',currency:'USD',input:2,output:8,requireCacheRates:true}]});
+  for(const[seq,usage]of[[1,{inputTokens:1000,outputTokens:0}],[2,{inputTokens:1000,outputTokens:0,cacheReadTokens:100}],[3,{inputTokens:10,outputTokens:0,inputIncludesCache:true,cacheReadTokens:20}]])h.feed('alpha',{type:'assistant/message',seq,data:{message:{source:{provider:'provider',model:'model'},content:[]},usage}});
+  const {cost,stats}=await h.operate({action:'status'},'alpha');assert.equal(cost.totals.USD,.002);assert.equal(cost.unknown,2);assert.equal(stats.unknownUsageResponses,1);assert.equal(stats.cacheAccounting.reported,1);assert.equal(stats.cacheAccounting.missing,2);
+});
+
+test('onboarding completion persists without implicitly enabling capture or identity',async t=>{
+  const h=harness();await apply(h.ctx,{enabled:true});t.after(()=>h.ctx.dispose());
+  const before=await h.operate({action:'settings'});assert.equal(before.settings.onboardingCompleted,false);
+  await h.operate({action:'save',revision:before.revision,settings:{...before.settings,onboardingCompleted:true}});
+  const after=await h.operate({action:'settings'});assert.equal(after.settings.onboardingCompleted,true);assert.equal(after.settings.captureEnabled,false);assert.equal(after.settings.identityEnabled,false);
+});
+test('aggregate breakdown sums to totals independently for each currency',async t=>{
+  const h=await setup(t);await save(h,{prices:[{provider:'provider',model:'usd',currency:'USD',input:2,output:8,cacheRead:.2,cacheWrite:3},{provider:'provider',model:'cny',currency:'CNY',input:4,output:16,cacheRead:.4,cacheWrite:6}]});
+  for(const [seq,model] of [[1,'usd'],[2,'cny']])h.feed('alpha',{type:'assistant/message',seq,data:{message:{source:{provider:'provider',model},content:[]},usage:{inputTokens:1000,outputTokens:500,cacheReadTokens:200,cacheWriteTokens:100}}});
+  const {cost}=await h.operate({action:'status'},'alpha');for(const currency of ['USD','CNY'])assert.ok(Math.abs(Object.values(cost.components[currency]).reduce((a,b)=>a+b,0)-cost.totals[currency])<1e-10);
+});
+
+test('non-prompt saves preserve registrations and cache diagnostics are session-bound',async t=>{
+  const h=await setup(t);const section=h.agents.get('alpha').prompt.sections.get('harness:identity');await save(h,{rotationSeconds:6});assert.equal(h.agents.get('alpha').prompt.sections.get('harness:identity'),section);
+  for(const id of ['alpha','beta'])await collect(h.stream({...request(id),messages:[{role:'system',content:'private system'},{role:'user',content:id}]},upstream([{type:'usage',usage:{inputTokens:20,cacheReadTokens:80,outputTokens:1}},finish()])));
+  const tool=h.tools.get('atelier');const data=await tool.execute({action:'cache',sessionId:'beta'},{agent:h.agents.get('alpha')});assert.equal(data.recent.total,1);assert.equal(data.recent.weightedRatio,.8);assert.ok(!JSON.stringify(data).includes('private system'));
 });
 
 test('prompt warning is session-scoped rather than globally sticky',async t=>{

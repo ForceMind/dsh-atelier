@@ -1,6 +1,8 @@
 import Schema from '@deepseek-ai/schemastery';
 import { z } from 'zod';
 import { randomUUID } from 'node:crypto';
+import { PRICE_CATALOG } from './price-catalog.mjs';
+import {requestFingerprint,compareFingerprints,cacheUsage,cacheWindow,cacheDiagnosis} from './cache-diagnostics.mjs';
 import { DEFAULT_SETTINGS, BUILTIN_PROMPTS, promptLibrary, selectedPrompt, validateSettings, redact, sanitizeStream, estimateTokens, priceUsage, readableRequest, initStats, foldStats } from './core.mjs';
 
 export const name = 'dsh-atelier';
@@ -30,6 +32,7 @@ export async function apply(ctx, config) {
   let closing = false;
   const requests = domain.table('requests');
   const active = new Map();
+  const fingerprints=new Map();ctx.effect(()=>()=>fingerprints.clear());
   let clientRuntime = null;
   const owners = new Map();
   const promptWarnings = new Map();
@@ -68,7 +71,7 @@ export async function apply(ctx, config) {
     return safely(() => maintenance);
   }
 
-  ctx.sessionProjections.register({key: KEY, stateVersion: 3, stateSchema: z.unknown(),
+  ctx.sessionProjections.register({key: KEY, stateVersion: 6, stateSchema: z.unknown(),
     init: () => initStats(), apply: foldStats, wire: {viewSchema: z.unknown(), view: state => state},
   });
 
@@ -110,7 +113,7 @@ export async function apply(ctx, config) {
     for (const agent of ctx.agents.list()) bindAgent(agent);
   }
   ctx.on('agent/created', ({agent}) => { bindAgent(agent); });
-  ctx.on('agent/disposed', ({agent}) => { owners.get(agent)?.(); owners.delete(agent); });
+  ctx.on('agent/disposed', ({agent}) => { owners.get(agent)?.(); owners.delete(agent);fingerprints.delete(agent.id); });
   for (const agent of ctx.agents.list()) bindAgent(agent);
 
   ctx.on('llm/stream', async function* (options, next) {
@@ -119,11 +122,12 @@ export async function apply(ctx, config) {
     const id = randomUUID();
     const {signal, ...serializable} = options;
     const request = redact(serializable);
+    const fingerprint=requestFingerprint(serializable);const cacheStability=compareFingerprints(fingerprints.get(options.sessionId),fingerprint);if(options.sessionId){fingerprints.delete(options.sessionId);fingerprints.set(options.sessionId,fingerprint);if(fingerprints.size>100)fingerprints.delete(fingerprints.keys().next().value);}
     const record = {
       version: 1, id, sessionId: options.sessionId ?? null,
       provider: options.provider, model: options.model, purpose: options.purpose ?? 'conversation',
       startedAt, endedAt: null, state: 'streaming',
-      captureEnabled: settings.captureEnabled,
+      captureEnabled: settings.captureEnabled,cacheStability,
       request: settings.captureEnabled ? request : null,
       chunks: [], usage: null, finish: null, error: null,
       inputEstimate: estimateTokens(JSON.stringify(request)),
@@ -183,19 +187,19 @@ export async function apply(ctx, config) {
     return agent?.session ? ctx.sessionProjections.stateOf(agent.session, KEY) : null;
   }
   function costOf(stats) {
-    const totals = {};
+    const totals = {}, components={};
     let unknown = stats?.unknownUsageResponses??0;
     const sources=new Set();
     for (const row of stats?.byModel ?? []) {
       const bands=row.priceBands?.length?row.priceBands:[{usage:row.usage,responses:row.responses}];
-      for(const band of bands){
+      for(const band of bands.flatMap(band=>band.cacheGroups?.length?band.cacheGroups.map(group=>({...group,pricingContextTokens:band.pricingContextTokens})):band)){
         if(!band.responses)continue;
         const price = priceUsage({...band.usage,...(band.pricingContextTokens===undefined?{}:{pricingContextTokens:band.pricingContextTokens})}, row.provider, row.model, settings.prices);
-        if (price.known) {totals[price.currency] = (totals[price.currency] ?? 0) + price.amount;sources.add(price.source);}
+        if (price.known) {totals[price.currency] = (totals[price.currency] ?? 0) + price.amount;sources.add(price.source);const bucket=components[price.currency]??={input:0,output:0,cacheRead:0,cacheWrite:0};for(const [key,amount] of Object.entries(price.components??{}))bucket[key]+=amount;}
         else unknown += band.responses ?? 1;
       }
     }
-    return {totals, unknown, sources:[...sources],basis:'official/configured API-equivalent; not reseller invoice',cacheWriteAssumption:'30m unless 12h usage explicitly supplied'};
+    return {totals, components, unknown, sources:[...sources],basis:'official/configured API-equivalent; not reseller invoice',cacheWriteAssumption:'configured default per rule; actual cache TTL is not reported by host'};
   }
   function summarize(record) {
     return {id:record.id,sessionId:record.sessionId,provider:record.provider,model:record.model,purpose:record.purpose,
@@ -203,7 +207,7 @@ export async function apply(ctx, config) {
       inputEstimate:record.inputEstimate,outputEstimate:record.outputEstimate,
       reasoningStartedAt:record.reasoningStartedAt,reasoningEndedAt:record.reasoningEndedAt,
       firstTextAt:record.firstTextAt,firstChunkAt:record.firstChunkAt,
-      truncated:record.truncated,captureEnabled:record.captureEnabled,
+      truncated:record.truncated,captureEnabled:record.captureEnabled,cacheStability:record.cacheStability??null,cache:cacheUsage(record.usage),
       price: priceUsage(record.usage ?? {inputTokens:record.inputEstimate,outputTokens:record.outputEstimate,inputIncludesCache:false},record.provider,record.model,settings.prices)};
   }
   const service = {
@@ -217,12 +221,12 @@ export async function apply(ctx, config) {
         const str=(item,limit=80)=>String(item??'').slice(0,limit);
         clientRuntime={...old,receivedAt:Date.now(),build:str(value.build),
           ...(value.mechanism?{enabled:value.enabled===true,activeLocale:str(value.activeLocale),running:value.running===true,label:str(value.label,500),mechanism:str(value.mechanism)}:{}),
-          ...(value.footer&&typeof value.footer==='object'?{footer:{mode:str(value.footer.mode),iconCount:Math.max(0,Math.min(20,Number(value.footer.iconCount)||0)),family:str(value.footer.family),model:str(value.footer.model,200),input:str(value.footer.input),output:str(value.footer.output),cache:str(value.footer.cache),elapsed:str(value.footer.elapsed),cost:str(value.footer.cost,200),animation:str(value.footer.animation)}}:{}),
+          ...(value.footer&&typeof value.footer==='object'?{footer:{mode:str(value.footer.mode),iconCount:Math.max(0,Math.min(20,Number(value.footer.iconCount)||0)),family:str(value.footer.family),model:str(value.footer.model,200),input:str(value.footer.input),output:str(value.footer.output),cache:str(value.footer.cache),elapsed:str(value.footer.elapsed),cost:str(value.footer.cost,200),animation:str(value.footer.animation),clickable:value.footer.clickable===true,popoverKind:str(value.footer.popoverKind),popoverNative:value.footer.popoverNative===true}}:{}),
         };
         return {ok:true};
       }
       if (action === 'display') return {phrases:settings.phrases,rotationSeconds:settings.rotationSeconds,chatDynamicLabels:settings.chatDynamicLabels,revision};
-      if (action === 'settings') return {settings,revision,scope:'profile',appliesTo:'all-current-and-future-agent-sessions',promptLibrary:promptLibrary(settings),selectedPrompt:selectedPrompt(settings),warning:promptWarnings.get(sessionId)??[]};
+      if (action === 'settings') return {settings,revision,priceCatalog:PRICE_CATALOG,scope:'profile',appliesTo:'all-current-and-future-agent-sessions',promptLibrary:promptLibrary(settings),selectedPrompt:selectedPrompt(settings),warning:promptWarnings.get(sessionId)??[]};
       if (action === 'diagnose') {
         const agent = ctx.agents.get(sessionId);
         if (!agent) throw new Error('会话未激活');
@@ -231,14 +235,14 @@ export async function apply(ctx, config) {
         const identity = assembly.sections.find(section=>section.name==='harness:identity');
         const extra = assembly.sections.find(section=>section.name==='atelier:instructions');
         const client = ctx.clientModules.graph().entries.find(entry=>entry.id==='dsh-atelier-plugin')??null;
-        return {build:'atelier-1.4.1',sessionId,registration:promptState.get(sessionId)??null,
+        return {build:'atelier-1.5.0',sessionId,registration:promptState.get(sessionId)??null,
           sections:assembly.sections.map(section=>({name:section.name,chars:section.text.length})),
           identity:identity?.text??null,identityMatches:!settings.identityEnabled||identity?.text===settings.identityText,
           extraMatches:extra?.text===settings.extraPrompt,toolCount:assembly.tools.length,
           scope:'profile',clientIdentityReduced:settings.hideClientIdentity,
           remainingSystemLabels:assembly.sections.filter(section=>/deepseek\s+harness|\bDSH\b/i.test(section.text)).map(section=>section.name),
           remainingContextLabels:(assembly.contexts??[]).filter(context=>/deepseek\s+harness|\bDSH\b/i.test(context.text)).map(context=>context.name),
-          warnings:promptWarnings.get(sessionId)??[],client,clientRuntime,selectedPrompt:selectedPrompt(settings)};
+          warnings:promptWarnings.get(sessionId)??[],cacheDiagnostics:await service.operate({action:'cache'},sessionId),client,clientRuntime,selectedPrompt:selectedPrompt(settings)};
       }
       if (action === 'save') {
         const operation = saveQueue.catch(() => {}).then(async () => {
@@ -246,12 +250,18 @@ export async function apply(ctx, config) {
           const next = validateSettings(input.settings);
           const nextRevision = revision + 1;
           await domain.global.set({settings:next,revision:nextRevision});
+          const promptChanged=['identityEnabled','identityText','hideClientIdentity','extraPrompt'].some(key=>next[key]!==settings[key]);
           settings = next; revision = nextRevision;
-          rebind(); await prune();
+          if(promptChanged)rebind(); await prune();
           return {settings,revision,promptLibrary:promptLibrary(settings),selectedPrompt:selectedPrompt(settings),scope:'profile',message:'已保存，从下一次请求生效；旧请求和历史内容不追溯修改。'};
         });
         saveQueue = operation.then(() => {}, () => {});
         return operation;
+      }
+      if(action==='cache'){
+        const rows=[...metadata.values()].map(row=>row.summary).filter(row=>row.sessionId===sessionId);
+        const selected=rows.filter(row=>row.endedAt!=null).sort((a,b)=>b.startedAt-a.startedAt).slice(0,8).map(row=>requests.get(row.id)).filter(Boolean);
+        return {recent:cacheWindow(rows),lifetime:statsOf(sessionId)?.cacheAccounting??null,prefix:cacheDiagnosis(selected),optimizations:{uiPhrasesStayClientOnly:true,nonPromptSavesPreservePromptBindings:true},storageError};
       }
       if (action === 'status') {
         const stats = statsOf(sessionId);
@@ -259,7 +269,7 @@ export async function apply(ctx, config) {
         const last = [...metadata.values()].map(row => row.summary).filter(r => r.sessionId === sessionId).sort((a,b)=>b.startedAt-a.startedAt)[0];
         const state = promptState.get(sessionId);
         const graphEntry = ctx.clientModules.graph().entries.find(entry=>entry.id==='dsh-atelier-plugin');
-        return {build:'atelier-1.4.1',stats,cost:costOf(stats),live,last:last ? summarize(last) : null,storageError,revision,
+        return {build:'atelier-1.5.0',stats,cost:costOf(stats),cache:cacheWindow([...metadata.values()].map(row=>row.summary).filter(row=>row.sessionId===sessionId)),live,last:last ? summarize(last) : null,storageError,revision,
           prompt:{...state,warnings:promptWarnings.get(sessionId)??[]},
           client:graphEntry??null,
           display:{phrases:settings.phrases,rotationSeconds:settings.rotationSeconds,captureEnabled:settings.captureEnabled,chatDynamicLabels:settings.chatDynamicLabels}};
@@ -302,8 +312,8 @@ export async function apply(ctx, config) {
     },
   });
   ctx.tools.register({
-    name:'atelier', description:'查看本地工作台状态、模型用量与估算费用，读取本会话请求日志，或管理动态提示、价格和身份设置。日志正文可能含敏感代码；按需分页读取。',
-    parameters:{type:'object',properties:{action:{type:'string',enum:['status','settings','save','logs','get','diagnose','display']},sessionId:{type:'string'},id:{type:'string'},view:{type:'string',enum:['json','text','chunks','response']},offset:{type:'integer'},limit:{type:'integer'},revision:{type:'integer'},settings:{type:'object',description:'save 时传完整设置；先用 settings 读取版本。'}},required:['action']},
+    name:'atelier', description:'查看本地模型用量与估算费用、cache 缓存命中与前缀变化诊断，读取本会话请求日志，或管理动态提示、价格和身份设置。日志正文可能含敏感代码；按需分页读取。',
+    parameters:{type:'object',properties:{action:{type:'string',enum:['status','settings','save','logs','get','diagnose','display','cache']},sessionId:{type:'string'},id:{type:'string'},view:{type:'string',enum:['json','text','chunks','response']},offset:{type:'integer'},limit:{type:'integer'},revision:{type:'integer'},settings:{type:'object',description:'save 时传完整设置；先用 settings 读取版本。'}},required:['action']},
     output:{schema:{},render:(_args,value)=>[{type:'text',text:JSON.stringify(value)}]},
     async execute(args,exec) {return service.operate(args,exec.agent?.id);},
     isConcurrencySafe: args=>args.action!=='save',

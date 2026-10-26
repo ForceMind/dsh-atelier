@@ -15,7 +15,8 @@ All settings are one profile-global record; logs are addressed by session ID. Pe
 | `retentionDays` | `14` | Integer 1–365; checked on startup / completion / save |
 | `maxLogMB` | `256` | Integer 1–4096; MiB despite the historical field name |
 | `rotationSeconds` | `4` | Number 1–60 |
-| `phrases` | 20 original Chinese phrases | 1–100 nonblank strings, max 200 chars each |
+| `onboardingCompleted` | `false` | Marks explicit completion of the three-step setup guide; does not imply consent to capture |
+| `phrases` | 76 original Chinese phrases | 1–100 nonblank strings, max 200 chars each |
 | `prices` | `[]` | Up to 100 strict price rules |
 | `promptLibrary` | `[]` | Up to 50 user entries, in addition to immutable built-ins |
 
@@ -29,14 +30,21 @@ Required: `provider`, `model`, `currency`, `input`, `output`.
 - `model`: exact ID or `*` glob; metacharacters other than `*` are literal.
 - `currency`: three uppercase letters; currencies are accumulated separately, not converted.
 - `input`, `output`, `cacheRead`, `cacheWrite`, `cacheWrite12h`: nonnegative per-million-token amounts up to 1,000,000. Missing cache rates fall back to input/write rate.
+- `requireCacheRates`: optional boolean. When true, nonzero cache-read/write usage without its matching explicit rate returns unknown instead of falling back to input price; used by incompletely documented catalog presets. Existing user rules keep their previous fallback behavior unless they opt in.
 - `source`, `checkedAt`, `label`: optional provenance strings. They are not fetched or independently validated as current prices.
-- `longContext`: optional `{threshold:272000,input,output,cacheRead?,cacheWrite?,cacheWrite12h?}`. It applies when one request's uncached input + cache read + cache write exceeds the threshold.
+- `longContext`: optional `{threshold:100000|272000,input,output,cacheRead?,cacheWrite?,cacheWrite12h?}`. It applies when one request's uncached input + cache read + cache write exceeds the threshold. Exactly 100K or 272K remains in the lower tier. The projection keeps disjoint ≤100K, >100K–272K and >272K buckets; it never selects a tier from a session-wide token sum.
 
 Specificity: exact provider → exact model → most-specific model glob → earliest rule. Set an exact provider rule to override an official-equivalent wildcard for your reseller's real rates.
 
 Input buckets follow DSH's disjoint semantics. The calculation accepts an explicit `inputIncludesCache:true` only for callers adapting inclusive counters. The current DSH public usage contract does not report a 12-hour cache TTL. A separately supplied `cacheWrite12hTokens` counter is an extension, not inferred metadata.
 
 Do not put API keys or authenticated URLs in `source`. Public examples use placeholder rates; there is no automatic price-update service.
+
+## Setup and cost breakdown (1.5.0 development)
+
+The setup guide lives inside Global settings, not in a blocking application modal. It reviews body capture, prompt preset and pricing. Clicking Next only edits the form draft; only Save and finish calls the shared revision-checked save operation. Later hides the guide for the current mounted form, without setting the durable completion flag. Existing capture/identity preferences are not silently reset.
+
+Status costs include `components[currency]` with `input`, `output`, `cacheRead` and `cacheWrite`. Each currency is separate; no exchange rate is inferred. Components use the same per-request context tiers and rates as the total. Rounding can create sub-display-cent differences. Unknown responses stay explicit; the breakdown is only for the known subtotal. Reasoning remains inside output, never a second fee.
 
 ## Prompt library entries
 
@@ -73,6 +81,7 @@ The UI uses authenticated DSH transport at `/api/atelier`. The `atelier` tool ca
 | `logs` | Session metadata page (`offset`, `limit` ≤100) |
 | `get` | Record view `json` / `text` / `chunks` / `response`; bounded character pages |
 | `diagnose` | Actual prompt section sizes, identity-match flags, remaining labels and Client state; no full system-prompt dump |
+| `cache` | Recent-20 reported-cache coverage and weighted ratio; latest-eight bounded normalized-prefix comparisons with no prose/hash output |
 | `display` | Small activity-text configuration |
 
 `/atelier` is a read-only summary command. The UI's private `client-report` operation stores bounded local activation metadata; it is not a network telemetry destination. Reports from multiple windows are best-effort last-writer diagnostics.
