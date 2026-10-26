@@ -11,6 +11,10 @@ A response lacking `cacheReadTokens` is **unreported**, not proven zero. An expl
 - **Observed share:** reported cache-read tokens divided by all valid input amounts in the same recent window. Unreported cache values contribute no guessed hits. It is a conservative observation, not a guaranteed global lower bound when some inputs are themselves unknown or channel usage semantics are incomplete. Compare it alongside the reported-only ratio and field coverage.
 - **Lifetime:** committed session responses, replayed into `cacheAccounting`; reported/missing counts remain separate. This scope differs from recent attempts.
 
+### Installed pi-ai adapter caveat
+
+The DSH 0.2.1-rc.3 pi-ai adapter inspected during this release maps `usage.cacheRead` / `usage.cacheWrite` only when greater than zero (`mapUsage` in the installed adapter). Thus an absent normalized cache field on that path can be an SDK zero deliberately omitted by the adapter, **not proof that a hidden positive cache hit occurred**. The reported-only ratio is conditional on positive fields and can be strongly biased upward. Prefer the observed share across all valid input amounts for a conservative operational view, and verify original channel usage before blaming field loss or routing. Atelier does not modify the host adapter or normalize all omitted fields to zero across unrelated providers.
+
 ## Prefix checks
 
 The cache action compares at most eight retained completed requests. It reports changes in route, system/developer content, ordered tool definitions, request options, and whether message history is append-only. A shared-message count is not a token-prefix length.
