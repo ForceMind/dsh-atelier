@@ -1,0 +1,30 @@
+name: Bug report
+description: Report a reproducible problem without sharing sensitive request logs.
+body:
+  - type: markdown
+    attributes:
+      value: 'Do not paste API keys, complete request logs, private code, profile configuration, or authentication headers.'
+  - type: input
+    id: versions
+    attributes:
+      label: DSH and plugin versions
+      placeholder: DSH 0.2.1-rc.3 / dsh-atelier-plugin 1.4.1
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected and actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Minimal sanitized evidence
+      description: Prefer a short error message or a redacted screenshot, not full model logs.

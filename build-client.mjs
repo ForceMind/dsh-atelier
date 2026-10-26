@@ -1,0 +1,11 @@
+import {readFile,writeFile} from 'node:fs/promises';
+const source=await readFile(new URL('./client-source.js',import.meta.url),'utf8');
+const activity=await readFile(new URL('./activity.mjs',import.meta.url),'utf8');
+const formatting=await readFile(new URL('./ui-format.mjs',import.meta.url),'utf8');
+const importLine="import { installChatActivity } from './activity.mjs';\nimport { compactNumber, compactDuration, compactMoney, modelFamily } from './ui-format.mjs';\n";
+const marker='  factory(require) {\n';
+if(!source.startsWith(importLine)||!source.includes(marker))throw new Error('Unexpected client source shape');
+const bundled=activity.replace('export function installChatActivity','function installChatActivity')+'\n'+formatting.replaceAll('export function ','function ');
+if(bundled.includes('export '))throw new Error('Unhandled activity export');
+await writeFile(new URL('./client.js',import.meta.url),source.slice(importLine.length).replace(marker,()=>marker+bundled.split('\n').map(line=>line?'    '+line:'').join('\n')+'\n'));
+console.log('Built client.js from client-source.js + activity.mjs');
