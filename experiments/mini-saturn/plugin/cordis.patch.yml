@@ -1,0 +1,4 @@
+- insert:
+    - id: mini-saturn
+      name: '@local/dsh-mini-saturn'
+      config: {}

@@ -1,0 +1,691 @@
+diff --git a/packages/client/ui-chat/README.md b/packages/client/ui-chat/README.md
+index 312796cd..b8b6f430 100644
+--- a/packages/client/ui-chat/README.md
++++ b/packages/client/ui-chat/README.md
+@@ -111,7 +111,7 @@ The process group uses a stable `div` layout box, a scroll body, and an uncapped
+ 
+ Running group titles, reasoning previews, tool and command rows, the active retry line, and the bottom running status use the shared [TextShimmer](../ui-primitives/README.md#component-catalog). Each row’s text shares one left-to-right highlight, including collapsed group titles; icons and hover chevrons retain their base appearance. Tool and process rows sit 6px apart. An expanded group title has 8px before its content, Assistant responses have 12px from adjacent process rows, and completed-Turn duration/status controls have 16px around them. Hidden and empty rows, including retained empty slot anchors, add no gap. The running “Deep diving” text retains its blue base while its theme-specific highlight sweeps across it.
+ 
+-The running status shows a whale whose APNG mask inherits the text color. CSS selects the static SVG when reduced motion or forced colors are active, or alpha masks are unsupported. The build embeds the image in the plugin stylesheet; React does not pass image data through DOM styles.
++The latest open process group in collapsed mode hosts the running icon, text, and clock in its disclosure header, without a second status row. Other modes and flows without that visible group retain the bottom running status; historical headers remain unchanged. The running status shows a whale whose APNG mask inherits the text color. CSS selects the static SVG when reduced motion or forced colors are active, or alpha masks are unsupported. The build embeds the image in the plugin stylesheet; React does not pass image data through DOM styles. The session-scoped single Slot `conversation.chat.running.icon` renders only the decorative running-status icon. The default whale registers at priority 0; a lower priority number replaces it, and disposing the replacement restores the whale. Icon contributions must remain decorative and respect reduced motion; they do not replace the status text, elapsed clock, live announcement, or Chat flow.
+ 
+ Scroll-edge fades initialize when `ResizeObserver` reports the open group's layout; opening the group performs no immediate scroll-dimension read in a layout effect.
+ 
+@@ -204,3 +204,5 @@ None; Chat presentation does not assemble or mutate provider requests.
+ None.
+ 
+ </details>
++
++The Session-scoped `conversation.chat.running` Component Factory owns the running icon Slot and its clock. The current streaming reasoning disclosure uses this Factory as its header while preserving the complete reasoning body; the flow omits its separate running row only while that reasoning header is visible. Historical reasoning keeps its ordinary disclosure, and an active process-group header remains the sole status owner for its nested reasoning.
+diff --git a/packages/client/ui-chat/README.zh.md b/packages/client/ui-chat/README.zh.md
+index 86d3b218..810ef2b7 100644
+--- a/packages/client/ui-chat/README.zh.md
++++ b/packages/client/ui-chat/README.zh.md
+@@ -111,7 +111,7 @@ Chat Builder 按节点发布 `bottomSource`：节点可见且属于已加载的
+ 
+ 运行中的分组标题、思考预览、工具与命令行、当前重试行以及底部运行状态使用共享的 [TextShimmer](../ui-primitives/README.zh.md#component-catalog)。每行的文字共用一道从左到右的高光，包括折叠的分组标题；图标和悬停箭头保留底色。工具和过程行之间相隔 6px；展开的分组标题与内容之间相隔 8px；Assistant 回复与相邻过程行之间相隔 12px；每轮完成／耗时控件周围保留 16px。隐藏行与空行（包括保留的空 slot 锚点）不产生间距。“深度求索”运行文字保留蓝色底色，并使用主题专用高光扫过文字。
+ 
+-运行状态显示一只鲸鱼，其 APNG 遮罩继承文字颜色。启用减少动态效果或强制颜色模式、或浏览器不支持 alpha 遮罩时，CSS 选择静态 SVG。构建将图片嵌入插件样式表；React 不通过 DOM 样式传递图片数据。
++折叠模式下，最新且未结束的过程组在展开按钮中显示运行图标、文字和计时，不再另加一行运行提示。其他模式或不存在该可见过程组时，保留底部运行状态；历史标题保持不变。运行状态显示一只鲸鱼，其 APNG 遮罩继承文字颜色。启用减少动态效果或强制颜色模式、或浏览器不支持 alpha 遮罩时，CSS 选择静态 SVG。构建将图片嵌入插件样式表；React 不通过 DOM 样式传递图片数据。 Session 作用域的 single Slot `conversation.chat.running.icon` 仅渲染运行状态的装饰图标。默认鲸鱼以优先级 0 注册；更小的优先级数值替换图标，替换项卸载后恢复鲸鱼。图标扩展必须保持装饰性并遵循减少动态效果偏好；它不替换状态文字、耗时时钟、实时播报或 Chat flow。
+ 
+ 滚动边缘渐隐在 `ResizeObserver` 报告已展开组的布局后初始化；展开组时不会在 layout effect 中立即读取滚动尺寸。
+ 
+@@ -204,3 +204,5 @@ Chat 会在历史前插与 renderer 重新挂载时恢复语义锚点，并且
+ 无。
+ 
+ </details>
++
++Session 作用域的 `conversation.chat.running` 组件工厂拥有运行图标插槽与计时。当前流式思考的展开标题使用该工厂，完整思考正文仍可展开；只有该标题可见时，对话流才省略独立运行行。历史思考保留普通展开入口；活动过程组标题仍是其内部思考的唯一运行状态拥有者。
+diff --git a/packages/client/ui-chat/src/client/apply.ts b/packages/client/ui-chat/src/client/apply.ts
+index 8aa63aa1..d3f38752 100644
+--- a/packages/client/ui-chat/src/client/apply.ts
++++ b/packages/client/ui-chat/src/client/apply.ts
+@@ -30,6 +30,8 @@ import { EMPTY_CHAT_SNAPSHOT } from './contract/snapshot.ts'
+ import { ApprovalCommand } from './chat/ApprovalCommand.tsx'
+ import { ChatView } from './chat/ChatView.tsx'
+ import { ChatFlow } from './chat/ChatFlow.tsx'
++import { RunningStatus } from './chat/RunningStatus.tsx'
++import { RunningWhaleTail } from './chat/RunningWhaleTail.tsx'
+ import { registerChatNodeRenderers } from './chat/register-node-renderers.ts'
+ import { UserContent } from './chat/UserContent.tsx'
+ import { ActivityPill, UsagePill } from './chat/StatsPills.tsx'
+@@ -224,6 +226,15 @@ export function apply(ctx: Context): void {
+     },
+   }, ChatFlow))
+ 
++  ctx.effect(() => ctx.slots.registerFactory({
++    name: 'conversation.chat.running', scope: 'session', locale: NS,
++    children: { 'conversation.chat.running.icon': { kind: 'single', scope: 'session' } },
++  }, RunningStatus))
++
++  ctx.slots.inject('conversation.chat.running.icon', () => ctx.slots.register({
++    name: 'conversation.chat.running.icon', priority: 0,
++  }, RunningWhaleTail))
++
+   ctx.slots.inject('conversation.view', () => {
+     const disposeView = ctx.slots.register({
+       name: 'conversation.view',
+diff --git a/packages/client/ui-chat/src/client/chat/AssistantMarkdown.tsx b/packages/client/ui-chat/src/client/chat/AssistantMarkdown.tsx
+index 22ae5bac..829088aa 100644
+--- a/packages/client/ui-chat/src/client/chat/AssistantMarkdown.tsx
++++ b/packages/client/ui-chat/src/client/chat/AssistantMarkdown.tsx
+@@ -1,6 +1,6 @@
+ import { Fragment, memo, useMemo } from 'react'
+ import { fileMediaUrl } from '@deepseek-ai/dsh-util-workspace-path'
+-import type { PropsRenderSlots } from '@deepseek-ai/dsh-client-ui-slots'
++import type { PropsRenderSlots, PropsRenderFactories } from '@deepseek-ai/dsh-client-ui-slots'
+ import type { ReactNode } from 'react'
+ import { JsonBlock, MarkdownText } from '@deepseek-ai/dsh-client-ui-primitives'
+ import type { MarkdownFileMentions, MarkdownPathImages } from '@deepseek-ai/dsh-client-ui-primitives'
+@@ -29,7 +29,9 @@ export function localPathMediaUrl(base: string, value: string): string | undefin
+ 
+ export interface AssistantMarkdownProps extends
+   Pick<PropsRenderSlots<'conversation.chat.reasoning.body' | 'conversation.chat.message.images'>, 'renderSlot'>,
+-  Pick<ChatNodeOwnerProps, 'loadImage'> {
++  Pick<ChatNodeOwnerProps, 'loadImage'>, Partial<PropsRenderFactories> {
++  /** Start of the open Turn for its current streaming reasoning status. */
++  runningStartTime?: number | undefined
+   /** Render only the requested business portion, preserving original block indexes. */
+   groupPart?: string | undefined
+   /** Stable Hook forwarded to each independently expandable reasoning block. */
+@@ -54,7 +56,7 @@ export interface AssistantMarkdownProps extends
+ 
+ /** Renders non-blank reasoning blocks as independent disclosures alongside the response. */
+ export const AssistantMarkdown = memo(function AssistantMarkdown({
+-  blocks, streaming, interrupted, loadImage, groupPart, useDisclosure,
++  blocks, streaming, interrupted, loadImage, groupPart, useDisclosure, renderFactorySlot, runningStartTime,
+   reasoningHidden = false, usePresentation, revealProcess, mentions, renderSlot, useGroupAction, t,
+ }: AssistantMarkdownProps) {
+   // Stable per locale revision (t identity changes on switch): a fresh object
+@@ -101,7 +103,7 @@ export const AssistantMarkdown = memo(function AssistantMarkdown({
+             useGroupAction={useGroupAction}
+           >
+             <ReasoningRow text={block.text} running={streaming && i === last} usePresentation={usePresentation}
+-              useDisclosure={useDisclosure} renderSlot={renderSlot} t={t} />
++              useDisclosure={useDisclosure} renderSlot={renderSlot} {...renderFactorySlot === undefined ? {} : { renderFactorySlot }} runningStartTime={runningStartTime} t={t} />
+           </ProcessReasoning>,
+         )
+         break
+diff --git a/packages/client/ui-chat/src/client/chat/AssistantNodeView.tsx b/packages/client/ui-chat/src/client/chat/AssistantNodeView.tsx
+index 5f61fe70..aa6c7649 100644
+--- a/packages/client/ui-chat/src/client/chat/AssistantNodeView.tsx
++++ b/packages/client/ui-chat/src/client/chat/AssistantNodeView.tsx
+@@ -8,8 +8,8 @@ type AssistantNodeViewProps = ChatNodeViewProps<'assistant-step'> & InjectFace<P
+ 
+ /** Streaming, settled, and interrupted Assistant states share one keyed renderer instance. */
+ export const AssistantNodeView = memo(function AssistantNodeView({
+-  node, groupPart, useDisclosure, useGroupAction, useTurnData, turnProcess, openFile, loadImage, fileMentions,
+-  usePresentation, renderSlot, t,
++  node, groupPart, runningStatusInGroup, useDisclosure, useGroupAction, useTurnData, turnProcess, openFile, loadImage, fileMentions,
++  usePresentation, renderSlot, renderFactorySlot, t,
+ }: AssistantNodeViewProps) {
+   const data = node.data
+   const turn = node.location.kind === 'turn' || node.location.kind === 'step'
+@@ -43,6 +43,8 @@ export const AssistantNodeView = memo(function AssistantNodeView({
+       useGroupAction={useGroupAction}
+       usePresentation={usePresentation}
+       renderSlot={renderSlot}
++      {...runningStatusInGroup ? {} : { renderFactorySlot }}
++      runningStartTime={turn?.status === 'open' ? turn.start?.time : undefined}
+       revealProcess={revealProcess}
+       mentions={mentions}
+       t={t}
+diff --git a/packages/client/ui-chat/src/client/chat/ChatFlow.tsx b/packages/client/ui-chat/src/client/chat/ChatFlow.tsx
+index c54e8a10..8232e0e6 100644
+--- a/packages/client/ui-chat/src/client/chat/ChatFlow.tsx
++++ b/packages/client/ui-chat/src/client/chat/ChatFlow.tsx
+@@ -1,12 +1,12 @@
+ /** Ordered Chat rows, local echoes, and running status share the flow slot's parent. */
+-import { memo } from 'react'
++import { Fragment, memo } from 'react'
+ import { assertNever } from '@deepseek-ai/dsh-util-values'
++import type { ChatNode } from '../contract/chat-nodes.ts'
+ import type { ChatFlowSlotProps } from '../contract/slots.ts'
+ import { ChatNodeSeat } from './ChatNodeSeat.tsx'
+ import { ChatGroupSeat } from './ChatGroupSeat.tsx'
+ import { PendingSteeringBubble, PendingSubmissionBubble } from './MessageItem.tsx'
+ import { chatRenderKey } from './render-entry.ts'
+-import { RunningStatus } from './RunningStatus.tsx'
+ 
+ /** Render the flow without adding a DOM parent or changing keyed row positions. */
+ export const ChatFlow = memo(function ChatFlow({
+@@ -24,6 +24,24 @@ export const ChatFlow = memo(function ChatFlow({
+       ? location.turn.status === 'open' ? location.turn.start?.time : undefined
+       : undefined
+   })
++  const tailGroup = entries.findLast(entry => entry.kind === 'group')
++  const lastGroup = useChatGroup(tailGroup?.kind === 'group' ? tailGroup.key : '')
++  const collapsedGroups = usePresentation(policy => policy.stepGrouping === 'collapsed')
++  const runningGroupKey = running && collapsedGroups && tailGroup?.kind === 'group' && lastGroup?.data.closed === false ? tailGroup.key : undefined
++  const currentAssistantKey = useChat(snapshot => entries.findLast(entry => {
++    if (entry.kind !== 'node' || entry.groupPart === 'response') return false
++    const candidate = snapshot.nodes.get(entry.key) as ChatNode | undefined
++    return candidate?.kind === 'assistant-step' && candidate.data.status === 'running'
++  })?.key ?? lastGroup?.members.findLast(member => {
++    if (member.groupPart === 'response') return false
++    const candidate = snapshot.nodes.get(member.key) as ChatNode | undefined
++    return candidate?.kind === 'assistant-step' && candidate.data.status === 'running'
++  })?.key)
++  const currentAssistant = useChatNode(currentAssistantKey ?? '') as ChatNode | undefined
++  const reasoningBlock = currentAssistant?.kind === 'assistant-step' ? currentAssistant.data.blocks.at(-1) : undefined
++  const visibleReasoning = currentAssistantKey !== undefined && reasoningBlock?.kind === 'reasoning' && reasoningBlock.text.trim() !== ''
++    && (entries.some(entry => entry.kind === 'node' && entry.key === currentAssistantKey && entry.groupPart !== 'response')
++      || (!collapsedGroups && lastGroup?.data.closed === false && lastGroup.members.some(member => member.key === currentAssistantKey && member.groupPart !== 'response')))
+   const seatProps = {
+     nodeStore, useChatNode, useChatNodeBottom, useChatNodeProcess, usePresentation,
+     useStore, actions, renderSlot, t, useGroupAction, deferCollapse,
+@@ -36,7 +54,8 @@ export const ChatFlow = memo(function ChatFlow({
+           {...entry.groupPart === undefined ? {} : { groupPart: entry.groupPart }} />
+       case 'group':
+         return <ChatGroupSeat {...seatProps} key={chatRenderKey(entry)} groupKey={entry.key}
+-          useChatGroup={useChatGroup} useGroupHeaderAction={useGroupHeaderAction} />
++          useChatGroup={useChatGroup} useGroupHeaderAction={useGroupHeaderAction}
++           runningStatus={entry.key === runningGroupKey} runningStartTime={runningStartTime} renderFactorySlot={renderFactorySlot} />
+       default:
+         return assertNever(entry)
+     }
+@@ -49,7 +68,8 @@ export const ChatFlow = memo(function ChatFlow({
+       loadImage={loadImage} renderFactorySlot={renderFactorySlot} t={t} />
+   ))
+   const tail = entries.at(-1)
+-  const node = tail?.kind === 'node' ? nodeStore.get(tail.key) : undefined
++  const tailNode = useChatNode(tail?.kind === 'node' ? tail.key : '')
++  const node = tailNode as ChatNode | undefined
+   // An empty opening control follows one local transcript echo, never steering.
+   // All rows share this keyed list so inserting the control keeps the echo mounted.
+   if (node?.kind === 'turn-process' && node.location.kind === 'turn'
+@@ -57,5 +77,5 @@ export const ChatFlow = memo(function ChatFlow({
+     const index = pendingInputs.findIndex(item => 'requestId' in item && item.placement === 'transcript')
+     if (index !== -1) rows.splice(rows.length - 1, 0, ...pendingRows.splice(index, 1))
+   }
+-  return [...rows, ...pendingRows, ...running ? [<RunningStatus key="running" startTime={runningStartTime} t={t} />] : []]
++  return [...rows, ...pendingRows, ...running && runningGroupKey === undefined && !visibleReasoning ? [<Fragment key="running">{renderFactorySlot('conversation.chat.running', { startTime: runningStartTime })}</Fragment>] : []]
+ })
+diff --git a/packages/client/ui-chat/src/client/chat/ChatGroupSeat.tsx b/packages/client/ui-chat/src/client/chat/ChatGroupSeat.tsx
+index 3153d3fd..e40d2c2c 100644
+--- a/packages/client/ui-chat/src/client/chat/ChatGroupSeat.tsx
++++ b/packages/client/ui-chat/src/client/chat/ChatGroupSeat.tsx
+@@ -21,6 +21,9 @@ import css from './ChatGroupSeat.module.css'
+ 
+ type SeatProps = Omit<ComponentProps<typeof ChatNodeSeat>, 'nodeKey' | 'groupPart'>
+ type ChatGroupSeatProps = SeatProps & {
++  readonly renderFactorySlot: ChatFlowSlotProps['renderFactorySlot']
++  readonly runningStatus?: boolean
++  readonly runningStartTime?: number | undefined
+   readonly groupKey: GroupKey
+   readonly useChatGroup: ChatFlowSlotProps['useChatGroup']
+   readonly useGroupHeaderAction: ChatFlowSlotProps['useGroupHeaderAction']
+@@ -89,7 +92,7 @@ const GroupMembers = memo(function GroupMembers({ members, ...props }: SeatProps
+     {...member.groupPart === undefined ? {} : { groupPart: member.groupPart }} />)
+ })
+ 
+-const ProcessGroupHeader = memo(function ProcessGroupHeader({ groupKey, useChatGroup, usePresentation, t, open, bodyId, toggle }: {
++const ProcessGroupHeader = memo(function ProcessGroupHeader({ groupKey, useChatGroup, usePresentation, t, open, bodyId, toggle, runningStatus, runningStartTime, renderFactorySlot }: {
+   readonly groupKey: GroupKey
+   readonly useChatGroup: ChatFlowSlotProps['useChatGroup']
+   readonly usePresentation: ChatFlowSlotProps['usePresentation']
+@@ -97,6 +100,9 @@ const ProcessGroupHeader = memo(function ProcessGroupHeader({ groupKey, useChatG
+   readonly open: boolean
+   readonly bodyId: string
+   readonly toggle: () => void
++  readonly runningStatus: boolean
++  readonly runningStartTime: number | undefined
++  readonly renderFactorySlot: ChatFlowSlotProps['renderFactorySlot']
+ }) {
+   const data = useChatGroup(groupKey, group => group?.data)
+   const detailed = usePresentation(policy => data?.closed === false && policy.liveProcessDetail)
+@@ -116,20 +122,20 @@ const ProcessGroupHeader = memo(function ProcessGroupHeader({ groupKey, useChatG
+     <button type="button" className={css.title} aria-expanded={open} aria-controls={bodyId}
+       data-process-activity={activity} onClick={(event) => { event.currentTarget.focus(); toggle() }}>
+       <span className={css.leading} aria-hidden="true">
+-        <span className={css.activityIcon} data-step-process-icon>{PROCESS_ICONS[activity]}</span>
++        {runningStatus ? null : <span className={css.activityIcon} data-step-process-icon>{PROCESS_ICONS[activity]}</span>}
+         <span className={css.chevron} data-step-process-chevron>
+           {open ? <IconChevronUpOutlineRegular /> : <IconChevronDownOutlineRegular />}
+         </span>
+       </span>
+-      <TextShimmer active={!data.closed}>
++      {runningStatus ? renderFactorySlot('conversation.chat.running', { inline: true, startTime: runningStartTime }) : <TextShimmer active={!data.closed}>
+         <TextShimmer className={css.label}>{title}</TextShimmer>
+-      </TextShimmer>
++      </TextShimmer>}
+     </button>
+   )
+ })
+ 
+ /** Render a process group with local disclosure and the existing outer-Turn visibility. */
+-export const ChatGroupSeat = memo(function ChatGroupSeat({ groupKey, useChatGroup, useGroupHeaderAction, ...props }: ChatGroupSeatProps) {
++export const ChatGroupSeat = memo(function ChatGroupSeat({ groupKey, useChatGroup, useGroupHeaderAction, runningStatus = false, runningStartTime, ...props }: ChatGroupSeatProps) {
+   const members = useChatGroup(groupKey, group => group?.members)
+   const turn = useChatGroup(groupKey, group => group?.data.turn)
+   const closed = useChatGroup(groupKey, group => group?.data.closed)
+@@ -189,13 +195,14 @@ export const ChatGroupSeat = memo(function ChatGroupSeat({ groupKey, useChatGrou
+       data-step-process data-group-expanded-mode={!grouped || undefined}>
+       <div ref={headerRef}>
+         <ProcessGroupHeader groupKey={groupKey} useChatGroup={useChatGroup}
+-          usePresentation={props.usePresentation} t={props.t} open={open} bodyId={bodyId} toggle={toggle} />
++          usePresentation={props.usePresentation} t={props.t} open={open} bodyId={bodyId} toggle={toggle} runningStatus={runningStatus && grouped}
++          runningStartTime={runningStartTime} renderFactorySlot={props.renderFactorySlot} />
+       </div>
+       <div ref={bodyRef} id={bodyId} className={classes.join(' ')} data-step-process-body
+         data-scroll-up={edges.canScrollUp || undefined} data-scroll-down={edges.canScrollDown || undefined}
+         {...events}>
+         <div ref={contentRef} className={css.content} data-step-process-content data-chat-flow="">
+-          <GroupMembers {...props} members={members} />
++          <GroupMembers {...props} runningStatusInGroup={runningStatus && grouped} members={members} />
+         </div>
+       </div>
+     </div>
+diff --git a/packages/client/ui-chat/src/client/chat/ChatNodeSeat.tsx b/packages/client/ui-chat/src/client/chat/ChatNodeSeat.tsx
+index 9721b4a0..ed91d662 100644
+--- a/packages/client/ui-chat/src/client/chat/ChatNodeSeat.tsx
++++ b/packages/client/ui-chat/src/client/chat/ChatNodeSeat.tsx
+@@ -47,7 +47,7 @@ function turnOf(node: ChatNode | undefined): number | undefined {
+  * only seats whose visibility actually changes.
+  */
+ export const ChatNodeSeat = memo(function ChatNodeSeat({
+-  nodeKey, groupPart, useChatNode, useChatNodeProcess, usePresentation,
++  nodeKey, groupPart, runningStatusInGroup, useChatNode, useChatNodeProcess, usePresentation,
+   cwd, openFile, inspectCall, forkAt,
+   loadImage, fileMentions, useStore, actions, renderSlot, t, useChatNodeBottom, deferCollapse, useGroupAction,
+ }: ChatNodeSeatProps) {
+@@ -126,6 +126,7 @@ export const ChatNodeSeat = memo(function ChatNodeSeat({
+     ? null
+     : {
+       ...groupPart === undefined ? {} : { groupPart },
++      ...runningStatusInGroup === undefined ? {} : { runningStatusInGroup },
+       cwd,
+       openFile,
+       inspectCall,
+@@ -134,7 +135,7 @@ export const ChatNodeSeat = memo(function ChatNodeSeat({
+       fileMentions,
+       turnProcess,
+     }, [
+-    node, groupPart, cwd, openFile, inspectCall, forkAt,
++    node, groupPart, runningStatusInGroup, cwd, openFile, inspectCall, forkAt,
+     loadImage, fileMentions, turnProcess,
+   ])
+   if (routedNode === undefined || owner === null) return null
+diff --git a/packages/client/ui-chat/src/client/chat/ChatView.module.css b/packages/client/ui-chat/src/client/chat/ChatView.module.css
+index 6696330f..fc171463 100644
+--- a/packages/client/ui-chat/src/client/chat/ChatView.module.css
++++ b/packages/client/ui-chat/src/client/chat/ChatView.module.css
+@@ -302,3 +302,10 @@
+ .modalAction {
+   min-width: 72px;
+ }
++
++.runningInline {
++  display: inline-flex;
++  min-width: 0;
++  color: var(--dsw-alias-label-deep-diving);
++  --dsw-alias-label-shimmer: var(--dsw-alias-label-deep-diving-shimmer);
++}
+diff --git a/packages/client/ui-chat/src/client/chat/ReasoningRow.module.css b/packages/client/ui-chat/src/client/chat/ReasoningRow.module.css
+index 0fe5aabf..7362648c 100644
+--- a/packages/client/ui-chat/src/client/chat/ReasoningRow.module.css
++++ b/packages/client/ui-chat/src/client/chat/ReasoningRow.module.css
+@@ -75,3 +75,20 @@
+   padding: 4px 0 4px calc(22px + var(--dsh-content-font-delta, 0px));
+   min-width: 0;
+ }
++
++.runningToggle {
++  display: inline-flex;
++  align-self: flex-start;
++  border: 0;
++  padding: 0;
++  background: none;
++  color: inherit;
++  font: inherit;
++  text-align: left;
++  cursor: pointer;
++}
++
++.runningToggle:focus-visible {
++  outline: var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color);
++  outline-offset: 2px;
++}
+diff --git a/packages/client/ui-chat/src/client/chat/ReasoningRow.tsx b/packages/client/ui-chat/src/client/chat/ReasoningRow.tsx
+index 8bbd738f..121416ae 100644
+--- a/packages/client/ui-chat/src/client/chat/ReasoningRow.tsx
++++ b/packages/client/ui-chat/src/client/chat/ReasoningRow.tsx
+@@ -1,7 +1,7 @@
+ /** Assistant reasoning disclosure, independent of Tool-call presentation. */
+-import { memo, useMemo } from 'react'
++import { memo, useId, useMemo } from 'react'
+ import { DisclosureRow, IconThinkOutlineRegular, TextShimmer } from '@deepseek-ai/dsh-client-ui-primitives'
+-import type { PropsRenderSlots } from '@deepseek-ai/dsh-client-ui-slots'
++import type { PropsRenderSlots, PropsRenderFactories } from '@deepseek-ai/dsh-client-ui-slots'
+ import type { ChatViewSlotProps, UseDisclosure, UsePresentation } from '../contract/slots.ts'
+ import a11yCss from './accessibility.module.css'
+ import css from './ReasoningRow.module.css'
+@@ -45,14 +45,16 @@ function latestCompletedParagraphFirstLine(text: string): string {
+  * @param props.t - conversation locale seat for the disclosure and running status.
+  * @returns the reasoning disclosure.
+  */
+-export const ReasoningRow = memo(function ReasoningRow({ text, running, usePresentation, useDisclosure, renderSlot, t }: {
++export const ReasoningRow = memo(function ReasoningRow({ text, running, usePresentation, useDisclosure, renderSlot, renderFactorySlot, runningStartTime, t }: {
++  runningStartTime?: number | undefined
+   text: string
+   running: boolean
+   useDisclosure: UseDisclosure
+   usePresentation: UsePresentation
+   t: ChatViewSlotProps['t']
+-} & Pick<PropsRenderSlots<'conversation.chat.reasoning.body'>, 'renderSlot'>) {
++} & Pick<PropsRenderSlots<'conversation.chat.reasoning.body'>, 'renderSlot'> & Partial<PropsRenderFactories>) {
+   const { expanded, toggle } = useDisclosure()
++  const bodyId = useId()
+   const summaryText = running ? latestCompletedParagraphFirstLine(text) : firstLine(text)
+   const summary = useMemo(() => summaryText.replaceAll('**', ''), [summaryText])
+   const preview = usePresentation(policy => !expanded && summary !== ''
+@@ -73,6 +75,15 @@ export const ReasoningRow = memo(function ReasoningRow({ text, running, usePrese
+     </div>
+   ) : undefined, [expanded, renderSlot, running, text])
+ 
++  if (running && renderFactorySlot !== undefined) return (
++    <div className={css.root} data-variant="think" data-state="running" data-expanded={expanded || undefined}>
++      <button type="button" className={css.runningToggle} aria-expanded={expanded} aria-controls={bodyId} onClick={toggle}>
++        {renderFactorySlot('conversation.chat.running', { inline: true, startTime: runningStartTime })}
++      </button>
++      <div id={bodyId} hidden={!expanded}>{content}</div>
++    </div>
++  )
++
+   return (
+     <div
+       className={css.root}
+diff --git a/packages/client/ui-chat/src/client/chat/RunningStatus.tsx b/packages/client/ui-chat/src/client/chat/RunningStatus.tsx
+index fd145b63..ba1e0242 100644
+--- a/packages/client/ui-chat/src/client/chat/RunningStatus.tsx
++++ b/packages/client/ui-chat/src/client/chat/RunningStatus.tsx
+@@ -1,23 +1,20 @@
+ /** Running Turn clock isolated from the transcript's render cycle. */
+ import { memo, useEffect, useState } from 'react'
+ import { TextShimmer } from '@deepseek-ai/dsh-client-ui-primitives'
+-import type { ChatViewSlotProps } from '../contract/slots.ts'
++import type { FactoryComponentPropsOf } from '@deepseek-ai/dsh-client-ui-slots'
++import type {} from '../contract/slots.ts'
+ import { formatRunDuration, LIVE_RUN_CLOCK_INTERVAL_MS } from './message-chrome.ts'
+-import { RunningWhaleTail } from './RunningWhaleTail.tsx'
+ import a11yCss from './accessibility.module.css'
+ import css from './ChatView.module.css'
+ 
+-interface RunningStatusProps {
+-  readonly startTime: number | undefined
+-  readonly t: ChatViewSlotProps['t']
+-}
++type RunningStatusProps = Pick<FactoryComponentPropsOf<'conversation.chat.running'>, 'startTime' | 'inline' | 't' | 'renderSlot'>
+ 
+ /**
+  * Show live elapsed time after the current Turn's content without announcing ticks.
+- * @param props - Current Turn start time and localized copy.
++ * @param props - Current Turn start time, localized copy, and flow-owned icon renderer.
+  * @returns the blue running indicator; mount only while the Session is running.
+  */
+-export const RunningStatus = memo(function RunningStatus({ startTime, t }: RunningStatusProps) {
++export const RunningStatus = memo(function RunningStatus({ startTime, t, renderSlot, inline = false }: RunningStatusProps) {
+   const [now, setNow] = useState(Date.now)
+   useEffect(() => {
+     if (startTime === undefined) return
+@@ -29,13 +26,13 @@ export const RunningStatus = memo(function RunningStatus({ startTime, t }: Runni
+     duration: formatRunDuration(Math.max(1000, now - startTime), t).map(part => part.text).join(''),
+   })
+   return (
+-    <div className={css.running} data-chat-running>
++    <span className={inline ? css.runningInline : css.running} data-chat-running>
+       <span className={a11yCss.visuallyHidden} role="status" aria-live="polite" aria-atomic="true">{t('chat.deepDiving')}</span>
+-      <span className={css.runningDivider} aria-hidden="true" />
++      {inline ? null : <span className={css.runningDivider} aria-hidden="true" />}
+       <span className={css.runningContent}>
+-        <RunningWhaleTail />
++        {renderSlot('conversation.chat.running.icon', {})}
+         <TextShimmer active className={css.runningText}>{label}</TextShimmer>
+       </span>
+-    </div>
++    </span>
+   )
+ })
+diff --git a/packages/client/ui-chat/src/client/contract/slots.ts b/packages/client/ui-chat/src/client/contract/slots.ts
+index a85e2879..2f0aaf66 100644
+--- a/packages/client/ui-chat/src/client/contract/slots.ts
++++ b/packages/client/ui-chat/src/client/contract/slots.ts
+@@ -209,6 +209,9 @@ export interface ChatNodeInjected {
+ 
+ /** Stable owner currency delivered to a keyed Chat renderer. */
+ export interface ChatNodeOwnerProps {
++  /** A live process header already owns the current running status. */
++  runningStatusInGroup?: boolean
++
+   /** Renderer-owned Node portion selected by the grouping Definition. */
+   groupPart?: string
+   cwd?: string | undefined
+@@ -370,6 +373,13 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
+   }
+ 
+   interface SlotFactoryMap {
++    /** Running status with an optional inline disclosure presentation. */
++    'conversation.chat.running': {
++      scope: 'session'
++      props: { readonly startTime: number | undefined; readonly inline?: boolean }
++      locale: 'chat'
++      children: { 'conversation.chat.running.icon': { kind: 'single'; scope: 'session' } }
++    }
+     /** Prepared user text, attachments, and references inside a caller-owned message row. */
+     'conversation.chat.user.content': {
+       scope: 'session'
+@@ -394,6 +404,8 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
+       hookContext: ChatFlowHookContext
+       inject: ChatFlowInjected
+     }
++    /** Decorative running-status icon; replacements leave status text, elapsed time, and announcements unchanged. */
++    'conversation.chat.running.icon': { kind: 'single'; scope: 'session' }
+     /**
+      * Final Chat node renderer, keyed by `ChatNodeKind`. The component receives
+      * the typed node, shared Chat actions, and Turn-data hook. Reusing a key
+diff --git a/packages/client/ui-chat/tests/chat-apply.client.spec.tsx b/packages/client/ui-chat/tests/chat-apply.client.spec.tsx
+index 6eced313..8dc585ac 100644
+--- a/packages/client/ui-chat/tests/chat-apply.client.spec.tsx
++++ b/packages/client/ui-chat/tests/chat-apply.client.spec.tsx
+@@ -133,6 +133,9 @@ describe('Chat apply wiring', () => {
+     const views = b.runtime.slots.entries('conversation.view')
+     expect(views.map(row => row.options.id)).toEqual(['chat'])
+     expect(resolveSlotLabel(views[0]?.options.label)).toBe('对话')
++    expect(b.runtime.slots.spec('conversation.chat.running.icon'))
++      .toMatchObject({ kind: 'single', scope: 'session' })
++    expect(b.runtime.slots.entries('conversation.chat.running.icon')[0]?.options.priority).toBe(0)
+     expect(b.runtime.slots.spec('conversation.chat.node'))
+       .toMatchObject({ kind: 'keyed', scope: 'session' })
+     expect(b.runtime.slots.entries('conversation.composer.dock').map(row => row.options.id))
+@@ -170,6 +173,7 @@ describe('Chat apply wiring', () => {
+     await b.chat.dispose()
+     expect(b.runtime.slots.spec('conversation.chat.flow')).toBeUndefined()
+     expect(b.runtime.slots.spec('conversation.chat.node')).toBeUndefined()
++    expect(b.runtime.slots.spec('conversation.chat.running.icon')).toBeUndefined()
+     expect(b.runtime.slots.spec('conversation.chat.message.images')).toBeUndefined()
+     expect(b.runtime.slots.spec('conversation.chat.user.images')).toBeUndefined()
+     expect(() => b.runtime.factoryOf('conversation.chat.user.content')).toThrow('no definition')
+diff --git a/packages/client/ui-chat/tests/chat-view.client.spec.tsx b/packages/client/ui-chat/tests/chat-view.client.spec.tsx
+index 241a0a20..d6eaa336 100644
+--- a/packages/client/ui-chat/tests/chat-view.client.spec.tsx
++++ b/packages/client/ui-chat/tests/chat-view.client.spec.tsx
+@@ -38,6 +38,8 @@ import { derivePresentationPolicy, type CollapseTiming } from '../src/client/pre
+ import { CHAT_FLOW_INJECT, CHAT_NODE_INJECT } from '../src/client/apply.ts'
+ import { ChatView } from '../src/client/chat/ChatView.tsx'
+ import { ChatFlow } from '../src/client/chat/ChatFlow.tsx'
++import { RunningStatus } from '../src/client/chat/RunningStatus.tsx'
++import { RunningWhaleTail } from '../src/client/chat/RunningWhaleTail.tsx'
+ import { en, zh } from '../src/client/locale.ts'
+ import { AssistantNodeView } from '../src/client/chat/AssistantNodeView.tsx'
+ import { CommandNodeView, ManualCompactionNodeView } from '../src/client/chat/CommandNodeView.tsx'
+@@ -444,9 +446,11 @@ function makeHarness(
+     if (key === 'conversation.chat.node') {
+       return renderNodeSlot(key, owner as RoutedChatNodeOwner, opts as Parameters<NodeRenderer>[2])
+     }
++    if (key === 'conversation.chat.running.icon') return <RunningWhaleTail />
+     throw new Error(`Undeclared flow child: ${key}`)
+   }
+   const renderFactorySlot: PropsRenderFactories['renderFactorySlot'] = (name, owner) => {
++    if (name === 'conversation.chat.running') return <RunningStatus {...owner as Pick<React.ComponentProps<typeof RunningStatus>, 'startTime' | 'inline'>} t={props.t} renderSlot={() => <RunningWhaleTail />} />
+     if (name !== 'conversation.chat.user.content') throw new Error(`Unexpected Chat Factory: ${name}`)
+     return renderUserContent(owner as UserContentInput, renderImages, props.t)
+   }
+@@ -4387,6 +4391,55 @@ describe('ChatView', () => {
+     expect(failedView.container.querySelector('[data-state="error"]')).not.toBeNull()
+   })
+ 
++  it('hosts the only live status in reasoning disclosure and preserves its text', () => {
++    const snapshot = chatSnapshotFixture({ nodes: [user(1, 'question')], partial: { turn: 1, step: 1, blocks: [{ kind: 'reasoning', text: 'Live original reasoning' }] } })
++    const h = makeHarness({ chat: snapshot }, { running: true })
++    const groups = new ConversationGroupStore<ProcessGroupData>()
++    const assistantKey = snapshot.order.find(key => snapshot.nodes.get(key)?.kind === 'assistant-step')!
++    const otherKey = snapshot.order.find(key => key !== assistantKey)!
++    groups.prepareAndInstall({ entries: [{ kind: 'node', key: assistantKey as NodeKey }, { kind: 'node', key: otherKey as NodeKey }], groups: { kind: 'replace', snapshots: [] } }, id => snapshot.nodes.get(id))
++    groups.publish()
++    h.setGrouped(groups)
++    const view = render(<h.ChatView {...h.props} />)
++    expect(view.container.querySelectorAll('[data-chat-running]')).toHaveLength(1)
++    const toggle = view.container.querySelector<HTMLButtonElement>('[data-variant="think"] button')!
++    expect(toggle.querySelector('[data-chat-running]')).not.toBeNull()
++    expect(toggle.getAttribute('aria-expanded')).toBe('false')
++    fireEvent.click(toggle)
++    expect(toggle.getAttribute('aria-expanded')).toBe('true')
++    expect(view.getByText('Live original reasoning')).toBeTruthy()
++    act(() => { h.setGrouped(undefined); h.setChat({ nodes: [user(1, 'question'), reasoningAssistant(2, 'Live original reasoning')], partial: null }); h.setSession({ running: false }) })
++    expect(view.container.querySelector('[data-chat-running]')).toBeNull()
++    expect(view.getByText('思考')).toBeTruthy()
++  })
++
++  it('uses one running status inside the latest collapsed live group and keeps disclosure', () => {
++    const snapshot = chatSnapshotFixture({ nodes: [userInTurn(1, 'question', 1), reasoningAssistant(2, 'analysis', 1, 1)] })
++    const h = makeHarness({ chat: snapshot }, { running: true })
++    h.setTranscriptView('compact')
++    const member = snapshot.order.at(-1)!
++    const key = 'running-process' as GroupKey
++    const groups = new ConversationGroupStore<ProcessGroupData>()
++    groups.prepareAndInstall({ entries: [{ kind: 'group', key }], groups: { kind: 'replace', snapshots: [
++      { key, data: { turn: 1, closed: false, summary: { counts: [], running: undefined, runningDetail: '' } }, members: [{ kind: 'node', key: member as NodeKey }] },
++    ] } }, id => snapshot.nodes.get(id))
++    groups.publish()
++    h.setGrouped(groups)
++    const view = render(<h.ChatView {...h.props} />)
++    const group = view.container.querySelector('[data-chat-group-key]')!
++    const header = group.querySelector<HTMLButtonElement>('[data-process-activity]')!
++    expect(view.container.querySelectorAll('[data-chat-running]')).toHaveLength(1)
++    expect(header.querySelector('[data-chat-running]')).not.toBeNull()
++    expect(header.textContent).not.toContain('正在分析请求')
++    expect(header.getAttribute('aria-expanded')).toBe('false')
++    fireEvent.click(header)
++    expect(header.getAttribute('aria-expanded')).toBe('true')
++    expect(view.container.querySelectorAll('[data-chat-running]')).toHaveLength(1)
++    act(() => { h.setSession({ running: false }) })
++    expect(view.container.querySelector('[data-chat-running]')).toBeNull()
++    expect(header.textContent).toContain('正在分析请求')
++  })
++
+   it('appends the running status at the transcript bottom only while the Session runs', () => {
+     const h = makeHarness({ nodes: [user(1, 'do the thing'), assistant(2, 'working')] }, { running: true })
+     const view = render(<h.ChatView {...h.props} />)
+diff --git a/packages/client/ui-chat/tests/running-status.client.spec.tsx b/packages/client/ui-chat/tests/running-status.client.spec.tsx
+index 6813410c..aaa2138b 100644
+--- a/packages/client/ui-chat/tests/running-status.client.spec.tsx
++++ b/packages/client/ui-chat/tests/running-status.client.spec.tsx
+@@ -1,27 +1,94 @@
+ // @vitest-environment jsdom
+ 
++import { useState, type ReactNode } from 'react'
+ import { act, cleanup, render } from '@testing-library/react'
+-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+-import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
++import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
++import { SlotTestRuntime, makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
+ import { zh as commonZh } from '@deepseek-ai/dsh-client-locale/src/locales/zh.ts'
++import { SessionId } from '@deepseek-ai/dsh-session/types'
++import type { PropsRenderSlots } from '@deepseek-ai/dsh-client-ui-slots'
+ import { RunningStatus } from '../src/client/chat/RunningStatus.tsx'
+ import { zh } from '../src/client/locale.ts'
++import { RunningWhaleTail } from '../src/client/chat/RunningWhaleTail.tsx'
+ 
+ const t = makeTranslate(zh, commonZh)
++const renderSlot: PropsRenderSlots<'conversation.chat.running.icon'>['renderSlot'] = (key: 'conversation.chat.running.icon') => {
++  if (key === 'conversation.chat.running.icon') return <RunningWhaleTail />
++  throw new Error(`Unexpected running-status child: ${key}`)
++}
+ 
+ beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(5_000) })
+ afterEach(() => { cleanup(); vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllGlobals() })
+ 
+ function statusHarness(startTime?: number) {
+-  const view = render(<RunningStatus startTime={startTime} t={t} />)
++  const view = render(<RunningStatus startTime={startTime} t={t} renderSlot={renderSlot} />)
+   return {
+     ...view,
+     content: () => view.container.querySelector('[data-chat-running] > :last-child'),
+-    set: (nextStartTime?: number) => { view.rerender(<RunningStatus startTime={nextStartTime} t={t} />) },
++    set: (nextStartTime?: number) => { view.rerender(<RunningStatus startTime={nextStartTime} t={t} renderSlot={renderSlot} />) },
++  }
++}
++
++type IconSeats = PropsRenderSlots<'conversation.chat.running.icon'>
++
++function ReplacementIcon() {
++  return <span aria-hidden="true" data-testid="replacement-running-icon" />
++}
++
++async function iconHarness() {
++  const runtime = await SlotTestRuntime.create()
++  onTestFinished(() => runtime.dispose())
++  const captured: { seats?: IconSeats; setContent?: (content: ReactNode) => void } = {}
++  await runtime.root.declare({
++    'conversation.chat.running.icon': { kind: 'single', scope: 'session' },
++  }, function TestRoot(props) {
++    const [content, setContent] = useState<ReactNode>(null)
++    captured.seats = props
++    captured.setContent = setContent
++    return content
++  })
++  const owner = await runtime.mount({ inject: ['slots'], apply: ctx => {
++    ctx.slots.register({ name: 'conversation.chat.running.icon', priority: 0 }, RunningWhaleTail)
++  } })
++  await runtime.sessions.add({ id: 'running-icon' })
++  const session = runtime.sessions.retainFor(runtime.ctx, SessionId('running-icon'))
++  const view = runtime.renderRoot()
++  const { seats, setContent } = captured
++  if (seats === undefined || setContent === undefined) throw new Error('Running icon root did not render')
++  const { SessionProvider } = seats
++  const renderIcon: PropsRenderSlots<'conversation.chat.running.icon'>['renderSlot'] = (key: 'conversation.chat.running.icon') => {
++    if (key !== 'conversation.chat.running.icon') throw new Error(`Unexpected running-status child: ${key}`)
++    return <SessionProvider session={session}>{seats.renderSlot(key, {})}</SessionProvider>
+   }
++  act(() => { setContent(<RunningStatus startTime={1_000} t={t} renderSlot={renderIcon} />) })
++  return { runtime, owner, view }
+ }
+ 
+ describe('RunningStatus', () => {
++  it('replaces only the decorative icon and restores the whale after disposal', async () => {
++    const b = await iconHarness()
++    const status = b.view.getByRole('status')
++    const content = b.view.container.querySelector('[data-chat-running] > :last-child')!
++    expect(content.querySelector('svg')).not.toBeNull()
++    expect(status.textContent).toBe('深度求索中')
++    const replacement = await b.runtime.mount({ inject: ['slots'], apply: ctx => {
++      ctx.slots.register({ name: 'conversation.chat.running.icon', priority: -10 }, ReplacementIcon)
++    } })
++    expect(b.view.getByTestId('replacement-running-icon').getAttribute('aria-hidden')).toBe('true')
++    expect(content.querySelector('svg')).toBeNull()
++    expect(b.view.getByRole('status')).toBe(status)
++    expect(content.textContent).toMatch(/^深度求索中，用时 \d+秒 ···$/)
++    act(() => { vi.advanceTimersByTime(2_000) })
++    expect(content.textContent).toContain('6秒')
++    await replacement.dispose()
++    expect(b.view.queryByTestId('replacement-running-icon')).toBeNull()
++    expect(content.querySelector('svg')).not.toBeNull()
++    await b.owner.dispose()
++    expect(content.querySelector('svg')).toBeNull()
++    expect(b.view.getByRole('status')).toBe(status)
++    expect(content.textContent).toContain('6秒')
++  })
++
+   it('waits for an open Turn start before allocating its clock', () => {
+     const view = statusHarness()
+     expect(view.content()?.textContent).toBe('深度求索中')

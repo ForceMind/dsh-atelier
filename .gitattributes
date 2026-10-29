@@ -1,0 +1,2 @@
+# Unified patches preserve a single-space prefix on empty context lines.
+experiments/mini-saturn/*.patch whitespace=-blank-at-eol

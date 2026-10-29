@@ -44,6 +44,16 @@ test('cache detail distinguishes missing latest fields and reported-only recent 
   assert.equal(detail.displayRows[0].value,'—');assert.equal(detail.displayRows[1].value,'75.0%');assert.equal(detail.displayRows[2].value,'80.0%');assert.equal(detail.displayRows[3].value,'4 / 20');
 });
 
+test('speed metric popover explains actual output and observed interval',()=>{
+  const detail=metricDetail('speed',{last:{throughput:{label:'125.0 tok/s',outputTokens:1250,generationMs:10000}}},t);assert.equal(detail.value,'125.0 tok/s');assert.equal(detail.displayRows.length,3);assert.ok(detail.rows.some(row=>row.value==='1,250'));assert.ok(detail.rows.some(row=>row.value==='10s'));assert.equal(metricDetail('speed',{},t).value,'—');
+});
+
 test('detail builder never consumes request bodies or mutates input',()=>{
   const input=structuredClone(sample);input.last.request={messages:[{text:'PRIVATE_BODY_FIXTURE'}]};const before=structuredClone(input);const result=JSON.stringify(['model','clock','thought','input','output','cache','cost'].map(kind=>metricDetail(kind,input,t)));assert.ok(!result.includes('PRIVATE_BODY_FIXTURE'));assert.deepEqual(input,before);
+});
+
+test('reasoning token details distinguish missing counters from explicit zero',()=>{
+  const missing=metricDetail('thought',{last:{reasoningStartedAt:1000,reasoningEndedAt:2000,usage:{outputTokens:100}}},t);
+  assert.ok(missing.rows.some(row=>row.value===t('reasoningUnreported')));assert.ok(missing.notes.includes(t('reasoningUsageHelp')));
+  const zero=metricDetail('thought',{last:{usage:{reasoningTokens:0}}},t);assert.ok(zero.rows.some(row=>row.label===t('detailReasoningTokens')&&row.value==='0'));
 });

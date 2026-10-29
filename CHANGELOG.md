@@ -2,6 +2,25 @@
 
 All notable public-release changes are documented here. Versions follow Semantic Versioning; the early DSH integration remains experimental.
 
+## [Unreleased]
+
+### Planning
+- Archive the Mini Saturn dedicated-icon and single-running-status Harness patch plus optional plugin under experiments; production application activation remains deferred. Remaining work and pricing gaps are tracked in ROADMAP.md.
+
+### Fixed
+- Hide the shared Conversation content-width handles only while the full-width Atelier View is mounted, removing invisible edge drag targets without changing Chat widths or sidebar resizing.
+
+### Added
+- Grouped workbench settings with preserved drafts; prefilled USD/CNY price tables, a global currency selection, and both DeepSeek rate rows visible without a scenario dropdown. Custom rules/JSON are advanced overrides, not parallel editors.
+- In-place model list and bulk context/output editing on configured pi-ai cards, preserving the existing reasoning extension. Five-minute previews, revision-checked writes, explicit inheritance snapshots and effective-value verification.
+- Sidebar recent dots occupy the native idle-state leading area; activity, approval and completion reminders keep priority.
+- Sidebar title dots for nonblank sessions updated within 24 hours, with original activity/unread/approval marks preserved.
+- Recent-hour sessions crossing the list's top edge can arm a brief one-shot native stop in either scroll direction; a single soft pulse identifies the aligned row. Ordinary rows no longer have persistent snap points. No wheel cancellation, permanent pinning or list reorder; reduced motion disables stops. Both features can be disabled separately in global settings.
+- Styling is intentionally scoped to the inspected DSH 0.2.1-rc.3 sidebar markup; renamed host classes require re-verification. No session history is opened.
+- Eighth compact footer metric: average API output speed in `tok/s`, with a read-only detail popover.
+- Uses API-reported output tokens divided by observed first-output-delta → usage-arrival duration, excluding initial waiting and tool execution. Includes output accounting for reasoning/tool arguments; not a visible-text tokenizer or provider-internal decode benchmark.
+- During generation, explicitly approximate character-based output averages refresh about every 0.5 seconds; completion uses API tokens. Before output, retain the previous valid speed. Older captures use less precise timestamp fallbacks.
+
 ## [1.5.0] - 2026-10-26
 
 ### Added

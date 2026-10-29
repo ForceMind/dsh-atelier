@@ -1,6 +1,9 @@
 import Schema from '@deepseek-ai/schemastery';
 import { z } from 'zod';
+import {createModelManager} from './model-manager.mjs';
 import { randomUUID } from 'node:crypto';
+import {outputThroughput} from './ui-format.mjs';
+import {referencePriceBook,activePriceRules} from './price-book.mjs';
 import { PRICE_CATALOG } from './price-catalog.mjs';
 import {requestFingerprint,compareFingerprints,cacheUsage,cacheWindow,cacheDiagnosis} from './cache-diagnostics.mjs';
 import { DEFAULT_SETTINGS, BUILTIN_PROMPTS, promptLibrary, selectedPrompt, validateSettings, redact, sanitizeStream, estimateTokens, priceUsage, readableRequest, initStats, foldStats } from './core.mjs';
@@ -144,6 +147,7 @@ export async function apply(ctx, config) {
       for await (const chunk of next()) {
         const time = Date.now();
         record.firstChunkAt ??= time;
+        if(['reasoning-delta','text-delta','tool-call-delta'].includes(chunk.type))record.firstOutputAt??=time;
         if (chunk.type === 'reasoning-delta') {
           record.reasoningStartedAt ??= time;
           record.reasoningEndedAt = time;
@@ -154,8 +158,9 @@ export async function apply(ctx, config) {
         }
         if (chunk.type.endsWith('-delta')) outputChars += (chunk.text ?? chunk.argumentsDelta ?? '').length;
         record.outputEstimate = Math.ceil(outputChars / 3);
-        if (chunk.type === 'usage') record.usage = {...chunk.usage, inputIncludesCache: false};
+        if (chunk.type === 'usage') {record.usage = {...chunk.usage, inputIncludesCache: false};record.generationEndedAt??=time;}
         if (chunk.type === 'finish') {
+          record.generationEndedAt??=time;
           record.finish = redact(chunk.reason);
           record.state = chunk.reason.kind;
         }
@@ -194,7 +199,7 @@ export async function apply(ctx, config) {
       const bands=row.priceBands?.length?row.priceBands:[{usage:row.usage,responses:row.responses}];
       for(const band of bands.flatMap(band=>band.cacheGroups?.length?band.cacheGroups.map(group=>({...group,pricingContextTokens:band.pricingContextTokens})):band)){
         if(!band.responses)continue;
-        const price = priceUsage({...band.usage,...(band.pricingContextTokens===undefined?{}:{pricingContextTokens:band.pricingContextTokens})}, row.provider, row.model, settings.prices);
+        const price = priceUsage({...band.usage,...(band.pricingContextTokens===undefined?{}:{pricingContextTokens:band.pricingContextTokens})}, row.provider, row.model, activePriceRules(settings));
         if (price.known) {totals[price.currency] = (totals[price.currency] ?? 0) + price.amount;sources.add(price.source);const bucket=components[price.currency]??={input:0,output:0,cacheRead:0,cacheWrite:0};for(const [key,amount] of Object.entries(price.components??{}))bucket[key]+=amount;}
         else unknown += band.responses ?? 1;
       }
@@ -206,27 +211,30 @@ export async function apply(ctx, config) {
       startedAt:record.startedAt,endedAt:record.endedAt,state:record.state,usage:record.usage,
       inputEstimate:record.inputEstimate,outputEstimate:record.outputEstimate,
       reasoningStartedAt:record.reasoningStartedAt,reasoningEndedAt:record.reasoningEndedAt,
-      firstTextAt:record.firstTextAt,firstChunkAt:record.firstChunkAt,
+      firstTextAt:record.firstTextAt,firstChunkAt:record.firstChunkAt,firstOutputAt:record.firstOutputAt??null,generationEndedAt:record.generationEndedAt??null,throughput:outputThroughput(record),
       truncated:record.truncated,captureEnabled:record.captureEnabled,cacheStability:record.cacheStability??null,cache:cacheUsage(record.usage),
-      price: priceUsage(record.usage ?? {inputTokens:record.inputEstimate,outputTokens:record.outputEstimate,inputIncludesCache:false},record.provider,record.model,settings.prices)};
+      price: priceUsage(record.usage ?? {inputTokens:record.inputEstimate,outputTokens:record.outputEstimate,inputIncludesCache:false},record.provider,record.model,activePriceRules(settings))};
   }
+  const modelManager=createModelManager(ctx,{makeId:randomUUID});
   const service = {
     async operate(input, callerSessionId) {
       if (!input || typeof input !== 'object') throw new Error('操作参数必须是对象');
       const action = input.action ?? 'status';
       const sessionId = callerSessionId ?? input.sessionId;
+      if(['models','model-preview','model-apply'].includes(action))return modelManager.operate(input);
       if (action === 'client-report') {
         const value=input.runtime??{};
         const old=clientRuntime??{};
         const str=(item,limit=80)=>String(item??'').slice(0,limit);
-        clientRuntime={...old,receivedAt:Date.now(),build:str(value.build),
+        clientRuntime={...old,receivedAt:Date.now(),build:str(value.build),...(value.layout?{layout:{width:Number(value.layout.width)||0,parent:Number(value.layout.parent)||0,hidden:str(value.layout.hidden),cells:(value.layout.cells??[]).slice(0,8).map(row=>({kind:str(row.kind),width:Number(row.width)||0}))}}:{}),
+          ...(value.sidebar?{sidebar:{recent:Math.max(0,Math.min(100000,Number(value.sidebar.recent)||0)),hot:Math.max(0,Math.min(100000,Number(value.sidebar.hot)||0)),marks:value.sidebar.marks===true,snap:value.sidebar.snap===true,mode:str(value.sidebar.mode)}}:{}),
           ...(value.mechanism?{enabled:value.enabled===true,activeLocale:str(value.activeLocale),running:value.running===true,label:str(value.label,500),mechanism:str(value.mechanism)}:{}),
-          ...(value.footer&&typeof value.footer==='object'?{footer:{mode:str(value.footer.mode),iconCount:Math.max(0,Math.min(20,Number(value.footer.iconCount)||0)),family:str(value.footer.family),model:str(value.footer.model,200),input:str(value.footer.input),output:str(value.footer.output),cache:str(value.footer.cache),elapsed:str(value.footer.elapsed),cost:str(value.footer.cost,200),animation:str(value.footer.animation),clickable:value.footer.clickable===true,popoverKind:str(value.footer.popoverKind),popoverNative:value.footer.popoverNative===true}}:{}),
+          ...(value.footer&&typeof value.footer==='object'?{footer:{mode:str(value.footer.mode),iconCount:Math.max(0,Math.min(20,Number(value.footer.iconCount)||0)),speed:str(value.footer.speed),family:str(value.footer.family),model:str(value.footer.model,200),input:str(value.footer.input),output:str(value.footer.output),cache:str(value.footer.cache),elapsed:str(value.footer.elapsed),cost:str(value.footer.cost,200),animation:str(value.footer.animation),clickable:value.footer.clickable===true,popoverKind:str(value.footer.popoverKind),popoverNative:value.footer.popoverNative===true}}:{}),
         };
         return {ok:true};
       }
-      if (action === 'display') return {phrases:settings.phrases,rotationSeconds:settings.rotationSeconds,chatDynamicLabels:settings.chatDynamicLabels,revision};
-      if (action === 'settings') return {settings,revision,priceCatalog:PRICE_CATALOG,scope:'profile',appliesTo:'all-current-and-future-agent-sessions',promptLibrary:promptLibrary(settings),selectedPrompt:selectedPrompt(settings),warning:promptWarnings.get(sessionId)??[]};
+      if (action === 'display') return {phrases:settings.phrases,rotationSeconds:settings.rotationSeconds,chatDynamicLabels:settings.chatDynamicLabels,sidebarRecentMarks:settings.sidebarRecentMarks,sidebarRecentSnap:settings.sidebarRecentSnap,revision};
+      if (action === 'settings') return {settings,revision,priceCatalog:PRICE_CATALOG,priceBook:referencePriceBook(),scope:'profile',appliesTo:'all-current-and-future-agent-sessions',promptLibrary:promptLibrary(settings),selectedPrompt:selectedPrompt(settings),warning:promptWarnings.get(sessionId)??[]};
       if (action === 'diagnose') {
         const agent = ctx.agents.get(sessionId);
         if (!agent) throw new Error('会话未激活');
@@ -263,13 +271,17 @@ export async function apply(ctx, config) {
         const selected=rows.filter(row=>row.endedAt!=null).sort((a,b)=>b.startedAt-a.startedAt).slice(0,8).map(row=>requests.get(row.id)).filter(Boolean);
         return {recent:cacheWindow(rows),lifetime:statsOf(sessionId)?.cacheAccounting??null,prefix:cacheDiagnosis(selected),optimizations:{uiPhrasesStayClientOnly:true,nonPromptSavesPreservePromptBindings:true},storageError};
       }
+      if(action==='live-speed')return {sampledAt:Date.now(),live:[...active.values()].filter(r=>r.sessionId===sessionId&&r.purpose==='conversation').map(r=>({id:r.id,provider:r.provider,model:r.model,state:r.state,endedAt:r.endedAt,firstOutputAt:r.firstOutputAt??null,outputEstimate:r.outputEstimate,usage:r.usage?{outputTokens:r.usage.outputTokens}:null}))};
       if (action === 'status') {
         const stats = statsOf(sessionId);
         const live = [...active.values()].filter(r => r.sessionId === sessionId).map(summarize);
-        const last = [...metadata.values()].map(row => row.summary).filter(r => r.sessionId === sessionId).sort((a,b)=>b.startedAt-a.startedAt)[0];
+        const recentRequests=[...metadata.values()].map(row=>row.summary).filter(r=>r.sessionId===sessionId).sort((a,b)=>b.startedAt-a.startedAt);
+        const last=recentRequests[0];
+        const speedRecord=recentRequests.find(r=>r.purpose==='conversation'&&outputThroughput(r).tokensPerSecond!==null);
+        const thoughtRecord=recentRequests.find(r=>r.purpose==='conversation'&&r.reasoningStartedAt!=null&&r.reasoningEndedAt!=null);
         const state = promptState.get(sessionId);
         const graphEntry = ctx.clientModules.graph().entries.find(entry=>entry.id==='dsh-atelier-plugin');
-        return {build:'atelier-1.5.0',stats,cost:costOf(stats),cache:cacheWindow([...metadata.values()].map(row=>row.summary).filter(row=>row.sessionId===sessionId)),live,last:last ? summarize(last) : null,storageError,revision,
+        return {build:'atelier-1.5.0',stats,cost:costOf(stats),cache:cacheWindow([...metadata.values()].map(row=>row.summary).filter(row=>row.sessionId===sessionId)),live,last:last ? summarize(last) : null,speed:speedRecord?{...outputThroughput(speedRecord),requestId:speedRecord.id,provider:speedRecord.provider,model:speedRecord.model,endedAt:speedRecord.endedAt,scope:'latest-valid-completed-conversation-request'}:null,thought:thoughtRecord?summarize(thoughtRecord):null,storageError,revision,
           prompt:{...state,warnings:promptWarnings.get(sessionId)??[]},
           client:graphEntry??null,
           display:{phrases:settings.phrases,rotationSeconds:settings.rotationSeconds,captureEnabled:settings.captureEnabled,chatDynamicLabels:settings.chatDynamicLabels}};
@@ -312,11 +324,11 @@ export async function apply(ctx, config) {
     },
   });
   ctx.tools.register({
-    name:'atelier', description:'查看本地模型用量与估算费用、cache 缓存命中与前缀变化诊断，读取本会话请求日志，或管理动态提示、价格和身份设置。日志正文可能含敏感代码；按需分页读取。',
-    parameters:{type:'object',properties:{action:{type:'string',enum:['status','settings','save','logs','get','diagnose','display','cache']},sessionId:{type:'string'},id:{type:'string'},view:{type:'string',enum:['json','text','chunks','response']},offset:{type:'integer'},limit:{type:'integer'},revision:{type:'integer'},settings:{type:'object',description:'save 时传完整设置；先用 settings 读取版本。'}},required:['action']},
+    name:'atelier', description:'查看用量、cache诊断和本会话请求日志，管理工作台设置，或用 models → model-preview → model-apply 预览并批量设置一个渠道现有模型的上下文/输出上限。日志可能含敏感代码；按需分页。',
+    parameters:{type:'object',properties:{action:{type:'string',enum:['status','settings','save','logs','get','diagnose','display','cache','models','model-preview','model-apply']},provider:{type:'string',description:'models/model-preview 的精确渠道 ID。'},changes:{type:'object',properties:{contextWindow:{type:'integer',minimum:1,maximum:10000000},maxTokens:{type:'integer',minimum:1,maximum:10000000}},additionalProperties:false,description:'model-preview 要覆盖的容量字段，未传字段保持不变。'},previewId:{type:'string',description:'model-apply 使用最近预览返回的 ID，5分钟有效。'},sessionId:{type:'string'},id:{type:'string'},view:{type:'string',enum:['json','text','chunks','response']},offset:{type:'integer'},limit:{type:'integer'},revision:{type:'integer'},settings:{type:'object',description:'save 时传完整设置；先用 settings 读取版本。'}},required:['action']},
     output:{schema:{},render:(_args,value)=>[{type:'text',text:JSON.stringify(value)}]},
     async execute(args,exec) {return service.operate(args,exec.agent?.id);},
-    isConcurrencySafe: args=>args.action!=='save',
+    isConcurrencySafe: args=>!['save','model-apply'].includes(args.action),
   });
   ctx.commands.register({name:'atelier',description:'显示此会话工作台状态（设置、日志和价格位于工作台视图）',handler:async invocation=>({kind:'success',text:JSON.stringify(await service.operate({action:'status'},invocation.agent.id),null,2)})});
   await prune();

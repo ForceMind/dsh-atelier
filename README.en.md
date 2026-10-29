@@ -123,6 +123,10 @@ Primarily exercised on macOS Desktop/Web with DSH 0.2.1-rc.3. Other operating sy
 
 The agent tool can modify the same global settings as the UI; restrict that tool through host policy if required. It cannot approve tool calls or change sandbox policy. Do not run the prototype and public package together.
 
+## Roadmap and Saturn experiment
+
+See the [roadmap](ROADMAP.md) for implemented-but-unreleased work, remaining price/cache gaps and optional suggestions. The [Mini Saturn source experiment](experiments/mini-saturn/README.md) requires a patched Harness build; it has not replaced the whale in the current application. Production activation is deferred by user decision.
+
 ## Credits and license
 
 Inspired by the Chinese-language experience of [Claude-Code-Chinese-Simplified](https://github.com/ForceMind/Claude-Code-Chinese-Simplified). No code or phrase list was copied. Artwork and orbital animation are original.

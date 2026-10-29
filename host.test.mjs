@@ -224,7 +224,20 @@ test('onboarding completion persists without implicitly enabling capture or iden
 test('aggregate breakdown sums to totals independently for each currency',async t=>{
   const h=await setup(t);await save(h,{prices:[{provider:'provider',model:'usd',currency:'USD',input:2,output:8,cacheRead:.2,cacheWrite:3},{provider:'provider',model:'cny',currency:'CNY',input:4,output:16,cacheRead:.4,cacheWrite:6}]});
   for(const [seq,model] of [[1,'usd'],[2,'cny']])h.feed('alpha',{type:'assistant/message',seq,data:{message:{source:{provider:'provider',model},content:[]},usage:{inputTokens:1000,outputTokens:500,cacheReadTokens:200,cacheWriteTokens:100}}});
-  const {cost}=await h.operate({action:'status'},'alpha');for(const currency of ['USD','CNY'])assert.ok(Math.abs(Object.values(cost.components[currency]).reduce((a,b)=>a+b,0)-cost.totals[currency])<1e-10);
+  for(const currency of ['USD','CNY']){await save(h,{priceCurrency:currency});const {cost}=await h.operate({action:'status'},'alpha');assert.ok(Math.abs(Object.values(cost.components[currency]).reduce((a,b)=>a+b,0)-cost.totals[currency])<1e-10);assert.equal(Object.keys(cost.totals).length,1);assert.equal(cost.unknown,1);}
+});
+
+test('request summary reports API output speed excluding initial metadata and waiting',async t=>{
+  const h=await setup(t);let time=1000;t.mock.method(Date,'now',()=>time);
+  await collect(h.stream(request('alpha'),async function*(){time=1200;yield {type:'metadata'};time=5000;yield {type:'text-delta',index:0,text:'hello'};time=15000;yield {type:'usage',usage:{inputTokens:1,outputTokens:1000}};time=15500;yield finish();}));
+  const row=(await h.operate({action:'logs'},'alpha')).items[0];assert.equal(row.throughput.tokensPerSecond,100);assert.equal(row.throughput.generationMs,10000);assert.equal(row.firstOutputAt,5000);assert.equal(row.generationEndedAt,15000);
+  const status=await h.operate({action:'status'},'alpha');assert.equal(status.speed.label,'100.0 tok/s');
+  time=20000;await collect(h.stream({...request('alpha'),purpose:'compaction'},async function*(){time=21000;yield {type:'finish',reason:{kind:'error'}};}));
+  assert.equal((await h.operate({action:'status'},'alpha')).speed.label,'100.0 tok/s');
+  time=22000;let started,release;const ready=new Promise(resolve=>started=resolve);const gate=new Promise(resolve=>release=resolve);
+  const pending=collect(h.stream(request('alpha'),async function*(){time=23000;yield {type:'text-delta',index:0,text:'live'};started();await gate;time=24000;yield {type:'usage',usage:{inputTokens:1,outputTokens:20}};yield finish();}));
+  await ready;const active=await h.operate({action:'status'},'alpha');assert.equal(active.live.length,1);assert.equal(active.speed.label,'100.0 tok/s');const sample=await h.operate({action:'live-speed'},'alpha');assert.equal(sample.live.length,1);assert.equal(sample.live[0].outputEstimate,2);assert.equal(JSON.stringify(sample).includes('messages'),false);assert.equal((await h.operate({action:'live-speed'},'beta')).live.length,0);release();await pending;
+  assert.equal((await h.operate({action:'status'},'alpha')).speed.label,'20.0 tok/s');
 });
 
 test('non-prompt saves preserve registrations and cache diagnostics are session-bound',async t=>{

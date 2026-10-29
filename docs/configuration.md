@@ -11,16 +11,26 @@ All settings are one profile-global record; logs are addressed by session ID. Pe
 | `extraPrompt` | empty | Literal extra instructions, max 200,000 characters |
 | `hideClientIdentity` | `false` | Neutralize the known `harness:source` / `app:web-surface` sections and optional contexts |
 | `chatDynamicLabels` | `false` | Opt into the shared fallback-language preference |
+| `sidebarRecentMarks` | `true` | Rolling 24-hour dot before nonblank session titles, using native summary `updatedAt`; not unread state |
+| `sidebarRecentSnap` | `true` | Brief one-shot top-edge stop for recent-hour sessions crossing in either direction, followed by one soft highlight; disabled under reduced motion, no wheel cancellation. Uses inspected DSH 0.2.1-rc.3 sidebar markup; future class changes need re-verification |
 | `captureEnabled` | `false` | Persist full normalized request/response bodies for new attempts |
 | `retentionDays` | `14` | Integer 1–365; checked on startup / completion / save |
 | `maxLogMB` | `256` | Integer 1–4096; MiB despite the historical field name |
 | `rotationSeconds` | `4` | Number 1–60 |
 | `onboardingCompleted` | `false` | Marks explicit completion of the three-step setup guide; does not imply consent to capture |
 | `phrases` | 76 original Chinese phrases | 1–100 nonblank strings, max 200 chars each |
-| `prices` | `[]` | Up to 100 strict price rules |
+| `priceCurrency` | `USD` | Global USD/CNY price-book selection for statistics and footer; no exchange conversion |
+| `pricePeriod` | `peak` | Retained DeepSeek estimate scenario; both peak/off-peak rows are shown together, with the active estimate marked. No automatic clock/holiday billing |
+| `prices` | `[]` | Up to 100 custom overrides; only the selected currency participates |
 | `promptLibrary` | `[]` | Up to 50 user entries, in addition to immutable built-ins |
 
 Unknown fields and invalid types are rejected. User strings are not template-interpolated into prompt variables. Adding a prompt entry does not apply it until you choose/save the corresponding fields.
+
+## Workbench and provider models
+
+Settings are grouped into Appearance, Prompts, Logs and API pricing. Category switching retains drafts; one Save commits the form. CNY/USD reference tables are prefilled, not imported. User-provided prices remain unverified. Custom overrides and explicit-apply JSON share one rule set, under advanced details; invalid or unapplied JSON cannot replace table data or be silently saved.
+
+Configured pi-ai provider cards show their model list and bulk context/output controls in place. The previous reasoning-effort extension is retained in the same card. Only contextWindow/maxTokens are allowed: preview first, confirm once, compare the exact settings revision, then read back effective capacities. A preview expires after five minutes; conflicts require a new preview. No credentials, headers, IDs or reasoning capability fields are changed. Inherited model arrays require an explicitly disclosed user-layer snapshot; catalog models use per-model overrides. Future model-specific limits can still override provider defaults. The operation does not add upstream capability.
 
 ## Price rule
 

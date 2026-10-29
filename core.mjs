@@ -28,8 +28,9 @@ export const BUILTIN_PROMPTS = Object.freeze([
 export const DEFAULT_SETTINGS = Object.freeze({
   identityEnabled: false, identityText: 'You are a helpful AI coding assistant.', extraPrompt: '',
   hideClientIdentity: false, chatDynamicLabels: false,
-  onboardingCompleted:false,
+  onboardingCompleted:false,sidebarRecentMarks:true,sidebarRecentSnap:true,
   captureEnabled: false, retentionDays: 14, maxLogMB: 256, rotationSeconds: 4,
+  priceCurrency:'USD',pricePeriod:'peak',
   phrases: Object.freeze(PHRASES), prices: Object.freeze([]), promptLibrary: Object.freeze([]),
 });
 const own = (value, key) => Object.prototype.hasOwnProperty.call(value, key);
@@ -83,7 +84,9 @@ function validatePrice(value, index) {
 export function validateSettings(input = {}) {
   keys(input, new Set(Object.keys(DEFAULT_SETTINGS)), 'settings');
   const result = { ...DEFAULT_SETTINGS, ...input };
-  for (const key of ['identityEnabled', 'captureEnabled', 'hideClientIdentity', 'chatDynamicLabels','onboardingCompleted']) if (typeof result[key] !== 'boolean') throw new TypeError(`${key} must be boolean`);
+  for (const key of ['identityEnabled', 'captureEnabled', 'hideClientIdentity', 'chatDynamicLabels','onboardingCompleted','sidebarRecentMarks','sidebarRecentSnap']) if (typeof result[key] !== 'boolean') throw new TypeError(`${key} must be boolean`);
+  if(!['USD','CNY'].includes(result.priceCurrency))throw new TypeError('priceCurrency must be USD or CNY');
+  if(!['peak','offpeak'].includes(result.pricePeriod))throw new TypeError('pricePeriod must be peak or offpeak');
   result.identityText = text(result.identityText, 'identityText', 50_000);
   result.extraPrompt = text(result.extraPrompt, 'extraPrompt', 200_000);
   result.retentionDays = number(result.retentionDays, 'retentionDays', 1, 365, true);

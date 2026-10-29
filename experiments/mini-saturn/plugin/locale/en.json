@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Mini Saturn",
+    "description": "Replace only the Chat running icon. Requires a Harness build with the running-icon slot."
+  }
+}

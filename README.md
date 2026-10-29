@@ -216,7 +216,9 @@ npm pack --dry-run --ignore-scripts
 - Host 缺少声明依赖时插件不会激活；仅安装成功不代表浏览器端已加载。可用 `atelier diagnose` 检查版本和 Client 注册。
 - 活动中更换插件若宿主返回 `restart-required`，请在当前回复结束后重启；不要通过另起服务器代替刷新当前应用。
 - 思考耗时是**可观察的 reasoning stream 区间**，不是供应商内部思考时间；没有该流时显示 `—`。
-- 原生鲸鱼图标仍由宿主控制；GPT 轨道图标位于底部指标旁。
+- 原生鲸鱼图标仍由宿主控制；GPT 轨道图标位于底部指标旁。迷你土星已准备独立源码补丁，尚未接入当前应用，详见[实验方案](experiments/mini-saturn/README.md)。
+
+下一版发布、价格缺口、缓存验证及可选功能见[后续计划](ROADMAP.md)。
 - 旧本地版与公开版不能在同一 profile 同时启用。
 
 ## 参与贡献
