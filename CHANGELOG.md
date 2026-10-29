@@ -8,6 +8,7 @@ All notable public-release changes are documented here. Versions follow Semantic
 - Archive the Mini Saturn dedicated-icon and single-running-status Harness patch plus optional plugin under experiments; production application activation remains deferred. Remaining work and pricing gaps are tracked in ROADMAP.md.
 
 ### Fixed
+- Apply the October 29 user-supplied Kimi dual-currency table, adding K2.7 HighSpeed and K3.1 Pro variants and correcting K2.7 CNY prices. Missing K3 CNY cache-read and cache-write rates remain unknown; k3-256k is not inferred.
 - Hide the shared Conversation content-width handles only while the full-width Atelier View is mounted, removing invisible edge drag targets without changing Chat widths or sidebar resizing.
 
 ### Added

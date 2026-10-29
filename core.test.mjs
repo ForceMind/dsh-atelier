@@ -33,10 +33,10 @@ test('documented presets validate, preserve custom overrides and never price pen
 });
 
 test('user reference groups validate without mixing currencies or peak/off selectors',()=>{
-  const groups=PRICE_CATALOG.groups;assert.equal(groups.length,6);assert.equal(groups.reduce((sum,group)=>sum+group.entries.length,0),21);
+  const groups=PRICE_CATALOG.groups;assert.equal(groups.length,6);assert.equal(groups.reduce((sum,group)=>sum+group.entries.length,0),27);
   for(const group of groups){const prices=validateSettings({prices:mergeCatalogPrices([],group.entries)}).prices;assert.ok(prices.every(row=>row.label.includes('independently unverified')&&row.source.startsWith('user-provided:')));}
   const select=id=>groups.find(group=>group.id===id).entries;
-  const usd=mergeCatalogPrices([],select('user-usd'));const merged=mergeCatalogPrices(usd,select('user-cn'));assert.equal(merged.find(row=>row.model==='kimi-k3').currency,'USD');assert.equal(merged.length,7);
+  const usd=mergeCatalogPrices([],select('user-usd'));const merged=mergeCatalogPrices(usd,select('user-cn'));assert.equal(merged.find(row=>row.model==='kimi-k3').currency,'USD');assert.equal(merged.length,10);
   const usage={inputTokens:10000,outputTokens:2000};assert.equal(priceUsage(usage,'p','kimi-k3',select('user-usd')).amount,.06);assert.equal(priceUsage(usage,'p','glm-5.3',select('user-usd')).amount,.0228);
   const peak=select('user-deepseek-usd-peak'),off=select('user-deepseek-usd-off');assert.equal(priceUsage(usage,'p','deepseek-v4-pro',peak).amount,.02112);assert.equal(priceUsage(usage,'p','deepseek-v4-pro',off).amount,.01056);
   assert.equal(mergeCatalogPrices(peak,off).length,2);assert.equal(mergeCatalogPrices(peak,off)[0].input,1.32);
