@@ -2,9 +2,9 @@
 
 状态核对：2026-10-30。此页区分已实现未发布、已确定未完成与仅供选择的建议；不是自动执行授权。
 
-## 已实现，准备发布 1.6.0
+## 已发布 1.6.0
 
-- [ ] 整理下一版 changelog、双语 README、兼容说明与安装包，验证归档内容后发布 GitHub Release / npm。1.6.0 已通过 103 项测试与打包审核；npm 认证检查返回 E401，尚未发布到 registry。源码和 GitHub 草稿先保存，待维护者私下恢复 npm 登录后继续；公开 npm/市场仍为 1.5.0。
+- [x] 整理双语 README、兼容说明、更新日志与安装包并发布 npm / [GitHub Release](https://github.com/ForceMind/dsh-atelier/releases/tag/v1.6.0)。npm 1.6.0 与 latest 已核实，下载包 SHA-512 与审核包一致；103 项测试及 Node 22/24 CI 通过。最初 E401/EOTP 经维护者私下认证解决。市场索引仍需刷新。
 - [x] 本地完成并经用户验收：实时估算输出速度／完成后 API 均速、思考时间保留、清晰的未上报思考 tokens、简洁统一 tips、底栏按实际宽度优先隐藏恢复。
 - [x] 本地完成并经用户验收：24h 近期点并入原生 idle 标记区、1h 会话双向顶部停靠／轻亮及冷却修复。
 - [x] 本地完成并经用户验收：工作台设置分组、主价格表与高级 JSON 一份规则、双币种预填和币种选择、DeepSeek 双行价格、移除工作台边缘多余宽度柄。
@@ -49,4 +49,4 @@
 
 ## English summary
 
-Version 1.6.0 is in release preflight; registry and release verification remain separate. The supplied Kimi price table is fully recorded; only internal channel/model mapping remains to be checked, not another request for user prices. Independent price verification is optional maintenance, while upstream cache effectiveness remains unproven. Marketplace PR 9524 is merged, and the configured index exposes 1.5.0; the next version needs a separate refresh check. The Saturn source experiment is archived and explicitly deferred from production activation. Three-plugin integration is assessed, not implemented or implicitly authorized. Optional budget/log/export/update features are suggestions, not delivery promises.
+Version 1.6.0 is published on npm (including latest) and GitHub; the downloaded registry tarball matches the reviewed artifact. The supplied Kimi price table is fully recorded; only internal channel/model mapping remains to be checked, not another request for user prices. Independent price verification is optional maintenance, while upstream cache effectiveness remains unproven. Marketplace PR 9524 is merged, and the configured index exposes 1.5.0; the next version needs a separate refresh check. The Saturn source experiment is archived and explicitly deferred from production activation. Three-plugin integration is assessed, not implemented or implicitly authorized. Optional budget/log/export/update features are suggestions, not delivery promises.
