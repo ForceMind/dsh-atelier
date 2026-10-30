@@ -1,10 +1,10 @@
 # 后续计划 / Roadmap
 
-状态核对：2026-10-29。此页区分已实现未发布、已确定未完成与仅供选择的建议；不是自动执行授权。
+状态核对：2026-10-30。此页区分已实现未发布、已确定未完成与仅供选择的建议；不是自动执行授权。
 
-## 已实现，待统一发布
+## 已实现，准备发布 1.6.0
 
-- [ ] 整理下一版 changelog、双语 README、兼容说明与安装包，验证归档内容后发布 GitHub Release / npm。公开最新仍为 `dsh-atelier-plugin@1.5.0`。
+- [ ] 整理下一版 changelog、双语 README、兼容说明与安装包，验证归档内容后发布 GitHub Release / npm。1.6.0 已通过 103 项测试与打包审核；npm 认证检查返回 E401，尚未发布到 registry。源码和 GitHub 草稿先保存，待维护者私下恢复 npm 登录后继续；公开 npm/市场仍为 1.5.0。
 - [x] 本地完成并经用户验收：实时估算输出速度／完成后 API 均速、思考时间保留、清晰的未上报思考 tokens、简洁统一 tips、底栏按实际宽度优先隐藏恢复。
 - [x] 本地完成并经用户验收：24h 近期点并入原生 idle 标记区、1h 会话双向顶部停靠／轻亮及冷却修复。
 - [x] 本地完成并经用户验收：工作台设置分组、主价格表与高级 JSON 一份规则、双币种预填和币种选择、DeepSeek 双行价格、移除工作台边缘多余宽度柄。
@@ -12,11 +12,17 @@
 
 ## 已提出，尚未完成
 
-- [ ] **价格补全**：已按用户 2026-10-29 新表配置 K2.7 标准／高速、K3、K3.1 Pro 标准／高速双币种报价，修正 K2.7 人民币价格并补 Coding HighSpeed 人民币映射。`k3-256k` 不在新表中，仍需精确型号报价；K3 人民币缓存命中与所有缓存写入价未提供，保留未知。不自动换汇，不宣称订阅扣额。
-- [ ] **常用模型价格全量核验**：当前存在固定文档快照、用户未独立核验参考价和精确渠道映射，尚非全量实时官方报价服务。需要模型 ID、地区／币种和缓存单价证据。
+- [x] **用户提供的 Kimi 价格录入**：2026-10-29 五个型号的双币种表已全部录入，包括 K2.7 标准／高速、K3、K3.1 Pro 标准／高速及 Coding 精确路由映射。K3 人民币缓存命中“——”保留未知；未列出的缓存写入不视为用户漏交资料。不再列为等待用户补价。
+- [ ] **内部渠道型号映射核对**：核对渠道 `k3-256k` 与已提供官方型号的对应关系；不擅自套为 K2.7，不将内部映射问题列作用户报价缺口。此项是工程核对，不需要用户重复提供已给价表。不自动换汇，不宣称订阅扣额。
+- **可选维护而非用户待办**：今后按需独立核验参考价格及变化；当前是固定快照，不宣称全量实时官方价表。用户已提供本次所需资料，不以额外核验为由重复索价。
 - [ ] **缓存实际效果**：插件侧减少无关重绑、统计纠偏和前缀诊断已做；上游路由、TTL、原始 usage 转发与真实命中改善未证实。不可发额外付费请求刷命中。
 - [x] **市场 PR 合并**：[9524](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/pull/9524) 已核对为 MERGED。
-- [ ] **市场可见性与版本更新**：核对配置市场索引中实际可检索、包名正确且版本更新；PR 合并不等于索引已刷新。
+- [x] **市场可见性**：已通过配置索引检索到 `dsh-atelier-plugin@1.5.0`，仓库和安装目标正确。
+- [ ] **市场新版更新**：发布 1.6.0 后核对索引刷新，不把 npm 发布视为市场已同步。
+
+## 下一阶段：会话永久删除
+
+- [ ] 用户已提出删除会话，随后选择先发布当前已完成版、删除进入下一阶段。宿主 rc.3 无安全删除 API，不通过拼路径删文件或假按钮绕过。范围、确认、写锁、fork、附件和缓存要求见[删除计划](docs/session-deletion-plan.md)。
 
 ## 土星方案：按用户决定暂缓接入
 
@@ -28,6 +34,11 @@
 
 详细边界与可审查源码见 [土星实验方案](experiments/mini-saturn/README.md)。
 
+## 思考滑块与整合
+
+- [x] 深空飞船外观已实现并由用户验收：轨道横向 320px、上下厚 28px，飞船 96×72；无白边，首尾可伸出，不改变原档位与保存逻辑。
+- [ ] 严格会话覆盖／恢复继承需要宿主正式 API；现有选择会后台保存部署默认，不添加语义不实的“仅本会话”按钮。见[思考设置说明](docs/reasoning-integration.md)。
+
 ## 已评估，不代表已批准实施
 
 - [ ] Reasoning Effort / BrowserSkill / dsh-context 三插件统一导航与设置：仅做兼容性评估和现有模型卡片适配，未完成三者整合；保留每个插件的权限与生命周期。
@@ -38,4 +49,4 @@
 
 ## English summary
 
-Local UI improvements are implemented but remain unreleased after npm 1.5.0. Missing Kimi prices await user data; broader live price verification and upstream cache effectiveness remain open. Marketplace PR 9524 is merged, while actual index visibility still needs checking. The Saturn source experiment is archived and explicitly deferred from production activation. Three-plugin integration is assessed, not implemented or implicitly authorized. Optional budget/log/export/update features are suggestions, not delivery promises.
+Version 1.6.0 is in release preflight; registry and release verification remain separate. The supplied Kimi price table is fully recorded; only internal channel/model mapping remains to be checked, not another request for user prices. Independent price verification is optional maintenance, while upstream cache effectiveness remains unproven. Marketplace PR 9524 is merged, and the configured index exposes 1.5.0; the next version needs a separate refresh check. The Saturn source experiment is archived and explicitly deferred from production activation. Three-plugin integration is assessed, not implemented or implicitly authorized. Optional budget/log/export/update features are suggestions, not delivery promises.

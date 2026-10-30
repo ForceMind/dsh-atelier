@@ -4,6 +4,10 @@ All notable public-release changes are documented here. Versions follow Semantic
 
 ## [Unreleased]
 
+- Permanent session deletion is planned as a host lifecycle extension, not shipped or simulated by archive.
+
+## [1.6.0] - 2026-10-30
+
 ### Planning
 - Archive the Mini Saturn dedicated-icon and single-running-status Harness patch plus optional plugin under experiments; production application activation remains deferred. Remaining work and pricing gaps are tracked in ROADMAP.md.
 
@@ -12,6 +16,8 @@ All notable public-release changes are documented here. Versions follow Semantic
 - Hide the shared Conversation content-width handles only while the full-width Atelier View is mounted, removing invisible edge drag targets without changing Chat widths or sidebar resizing.
 
 ### Added
+- Original deep-space spacecraft appearance for the existing Better Reasoning Effort 0.5.4 composer slider. No duplicate levels/persistence. User-accepted final geometry: 320px-long / 28px-thick track, 96×72 ship, no white padding, unclipped endpoints; reduced-motion and forced-color styles. This depends on version-scoped plugin markup.
+- Document default/model/session distinctions and the host limitation preventing a truthful strict-session-only reset control.
 - Grouped workbench settings with preserved drafts; prefilled USD/CNY price tables, a global currency selection, and both DeepSeek rate rows visible without a scenario dropdown. Custom rules/JSON are advanced overrides, not parallel editors.
 - In-place model list and bulk context/output editing on configured pi-ai cards, preserving the existing reasoning extension. Five-minute previews, revision-checked writes, explicit inheritance snapshots and effective-value verification.
 - Sidebar recent dots occupy the native idle-state leading area; activity, approval and completion reminders keep priority.

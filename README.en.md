@@ -101,6 +101,12 @@ Opting in switches built-in Chinese/English to `zh-x-atelier` / `en-x-atelier`, 
 
 Rotation runs only while a session is running, normally every four seconds. Dictionary changes produce global locale revisions. Screen-reader announcements remain stable; only the visible elapsed-time string rotates. No host DOM manipulation or entire Chat renderer replacement is used.
 
+## Deep-space reasoning slider
+
+When Better Reasoning Effort 0.5.4 and its composer slider are enabled, Atelier styles the existing control with original space/ship artwork: a 320px-long, 28px-thick track and a 96×72 ship that may extend beyond it. Reduced motion stops animation. This is version-scoped `.bre-*` appearance compatibility, not a second slider or a stable cross-plugin API; supported levels and persistence remain owned by the original plugin. See [reasoning semantics](docs/reasoning-integration.md) for the host limitation on strict session-only selection/reset.
+
+Permanent session deletion is not implemented: stock rc.3 has no supported delete API. The [follow-up plan](docs/session-deletion-plan.md) is deliberately separate from archive and this release.
+
 ## Development
 
 ```sh
@@ -125,7 +131,7 @@ The agent tool can modify the same global settings as the UI; restrict that tool
 
 ## Roadmap and Saturn experiment
 
-See the [roadmap](ROADMAP.md) for implemented-but-unreleased work, remaining price/cache gaps and optional suggestions. The [Mini Saturn source experiment](experiments/mini-saturn/README.md) requires a patched Harness build; it has not replaced the whale in the current application. Production activation is deferred by user decision.
+See the [roadmap](ROADMAP.md) for implemented-but-unreleased work, internal model mapping, cache verification and optional suggestions. The [Mini Saturn source experiment](experiments/mini-saturn/README.md) requires a patched Harness build; it has not replaced the whale in the current application. Production activation is deferred by user decision.
 
 ## Credits and license
 

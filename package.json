@@ -1,29 +1,102 @@
 {
   "name": "dsh-atelier-plugin",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "description": "Local-first DeepSeek Harness workbench: compact model metrics, API cost estimates, a global prompt library, and opt-in request auditing.",
   "type": "module",
   "license": "MIT",
   "author": "ForceMind",
   "homepage": "https://github.com/ForceMind/dsh-atelier#readme",
-  "repository": { "type": "git", "url": "git+https://github.com/ForceMind/dsh-atelier.git" },
-  "bugs": { "url": "https://github.com/ForceMind/dsh-atelier/issues" },
-  "keywords": ["deepseek-harness", "dsh", "cordis", "dsh-plugin", "workbench", "token-usage", "cost-estimation", "prompt-library", "request-logging"],
-  "engines": { "node": ">=22.19.0", "dsh": ">=0.2.1-rc.3 <0.3.0" },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ForceMind/dsh-atelier.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ForceMind/dsh-atelier/issues"
+  },
+  "keywords": [
+    "deepseek-harness",
+    "dsh",
+    "cordis",
+    "dsh-plugin",
+    "workbench",
+    "token-usage",
+    "cost-estimation",
+    "prompt-library",
+    "request-logging"
+  ],
+  "engines": {
+    "node": ">=22.19.0",
+    "dsh": ">=0.2.1-rc.3 <0.3.0"
+  },
   "packageManager": "pnpm@11.28.5",
-  "exports": { ".": "./host.js", "./client": "./client.js", "./package.json": "./package.json", "./locale/*.json": "./locale/*.json", "./icon": "./icon.svg" },
-  "files": ["host.js", "index.js", "client.js", "client-source.js", "activity.mjs", "ui-format.mjs", "metric-details.mjs", "session-recency.mjs", "model-manager.mjs", "model-settings-ui.mjs", "price-editor.mjs", "price-book.mjs", "build-client.mjs", "core.mjs", "price-catalog.mjs", "cache-diagnostics.mjs", "cordis.patch.yml", "locale/*.json", "icon.svg", "README.md", "README.en.md", "CHANGELOG.md", "SECURITY.md", "LICENSE", "docs/*.md"],
+  "exports": {
+    ".": "./host.js",
+    "./client": "./client.js",
+    "./package.json": "./package.json",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg"
+  },
+  "files": [
+    "host.js",
+    "index.js",
+    "client.js",
+    "client-source.js",
+    "activity.mjs",
+    "ui-format.mjs",
+    "metric-details.mjs",
+    "session-recency.mjs",
+    "model-manager.mjs",
+    "model-settings-ui.mjs",
+    "price-editor.mjs",
+    "price-book.mjs",
+    "reasoning-appearance.mjs",
+    "build-client.mjs",
+    "core.mjs",
+    "price-catalog.mjs",
+    "cache-diagnostics.mjs",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "icon.svg",
+    "README.md",
+    "README.en.md",
+    "CHANGELOG.md",
+    "SECURITY.md",
+    "LICENSE",
+    "docs/*.md"
+  ],
   "scripts": {
     "build": "node build-client.mjs",
-    "check": "node --check host.js && node --check client.js && node --test core.test.mjs host.test.mjs activity.test.mjs ui-format.test.mjs metric-details.test.mjs cache-diagnostics.test.mjs session-recency.test.mjs model-manager.test.mjs price-editor.test.mjs price-book.test.mjs release.test.mjs",
-    "test": "node --test core.test.mjs host.test.mjs activity.test.mjs ui-format.test.mjs metric-details.test.mjs cache-diagnostics.test.mjs session-recency.test.mjs model-manager.test.mjs price-editor.test.mjs price-book.test.mjs release.test.mjs",
+    "check": "node --check host.js && node --check client.js && node --test core.test.mjs host.test.mjs activity.test.mjs ui-format.test.mjs metric-details.test.mjs cache-diagnostics.test.mjs session-recency.test.mjs model-manager.test.mjs price-editor.test.mjs price-book.test.mjs reasoning-appearance.test.mjs release.test.mjs",
+    "test": "node --test core.test.mjs host.test.mjs activity.test.mjs ui-format.test.mjs metric-details.test.mjs cache-diagnostics.test.mjs session-recency.test.mjs model-manager.test.mjs price-editor.test.mjs price-book.test.mjs reasoning-appearance.test.mjs release.test.mjs",
     "prepack": "node build-client.mjs"
   },
-  "dependencies": { "@deepseek-ai/schemastery": "~3.18.5", "zod": "^4.4.3" },
-  "publishConfig": { "access": "public", "registry": "https://registry.npmjs.org" },
+  "dependencies": {
+    "@deepseek-ai/schemastery": "~3.18.5",
+    "zod": "^4.4.3"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org"
+  },
   "dsh": {
-    "bundle": { "patch": "./cordis.patch.yml" },
-    "client": { "platform": "web", "immediately": true, "inject": ["@deepseek-ai/dsh-client-ui-chat", "@deepseek-ai/dsh-client-ui-conversation", "@deepseek-ai/dsh-client-ui-settings", "@deepseek-ai/dsh-client-locale", "@deepseek-ai/dsh-client-connection"] },
-    "compatibility": { "dshReleases": { "0.2.1-rc.3": "compatible" } }
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-chat",
+        "@deepseek-ai/dsh-client-ui-conversation",
+        "@deepseek-ai/dsh-client-ui-settings",
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-connection"
+      ]
+    },
+    "compatibility": {
+      "dshReleases": {
+        "0.2.1-rc.3": "compatible"
+      }
+    }
   }
 }

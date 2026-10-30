@@ -243,7 +243,7 @@ export async function apply(ctx, config) {
         const identity = assembly.sections.find(section=>section.name==='harness:identity');
         const extra = assembly.sections.find(section=>section.name==='atelier:instructions');
         const client = ctx.clientModules.graph().entries.find(entry=>entry.id==='dsh-atelier-plugin')??null;
-        return {build:'atelier-1.5.0',sessionId,registration:promptState.get(sessionId)??null,
+        return {build:'atelier-1.6.0',sessionId,registration:promptState.get(sessionId)??null,
           sections:assembly.sections.map(section=>({name:section.name,chars:section.text.length})),
           identity:identity?.text??null,identityMatches:!settings.identityEnabled||identity?.text===settings.identityText,
           extraMatches:extra?.text===settings.extraPrompt,toolCount:assembly.tools.length,
@@ -281,7 +281,7 @@ export async function apply(ctx, config) {
         const thoughtRecord=recentRequests.find(r=>r.purpose==='conversation'&&r.reasoningStartedAt!=null&&r.reasoningEndedAt!=null);
         const state = promptState.get(sessionId);
         const graphEntry = ctx.clientModules.graph().entries.find(entry=>entry.id==='dsh-atelier-plugin');
-        return {build:'atelier-1.5.0',stats,cost:costOf(stats),cache:cacheWindow([...metadata.values()].map(row=>row.summary).filter(row=>row.sessionId===sessionId)),live,last:last ? summarize(last) : null,speed:speedRecord?{...outputThroughput(speedRecord),requestId:speedRecord.id,provider:speedRecord.provider,model:speedRecord.model,endedAt:speedRecord.endedAt,scope:'latest-valid-completed-conversation-request'}:null,thought:thoughtRecord?summarize(thoughtRecord):null,storageError,revision,
+        return {build:'atelier-1.6.0',stats,cost:costOf(stats),cache:cacheWindow([...metadata.values()].map(row=>row.summary).filter(row=>row.sessionId===sessionId)),live,last:last ? summarize(last) : null,speed:speedRecord?{...outputThroughput(speedRecord),requestId:speedRecord.id,provider:speedRecord.provider,model:speedRecord.model,endedAt:speedRecord.endedAt,scope:'latest-valid-completed-conversation-request'}:null,thought:thoughtRecord?summarize(thoughtRecord):null,storageError,revision,
           prompt:{...state,warnings:promptWarnings.get(sessionId)??[]},
           client:graphEntry??null,
           display:{phrases:settings.phrases,rotationSeconds:settings.rotationSeconds,captureEnabled:settings.captureEnabled,chatDynamicLabels:settings.chatDynamicLabels}};

@@ -4,6 +4,7 @@ import { metricCopy, metricDetail, popoverPosition } from './metric-details.mjs'
 import { recentSessionStyles, sessionRecency, observeRecentStops } from './session-recency.mjs';
 import { installModelSettings } from './model-settings-ui.mjs';
 import { parsePriceDraft, patchPriceRule, appendPriceRules } from './price-editor.mjs';
+import { installReasoningAppearance } from './reasoning-appearance.mjs';
 window.__ModuleLoader__.load({
   id: 'dsh-atelier-plugin',
   factory(require) {
@@ -56,7 +57,7 @@ window.__ModuleLoader__.load({
           let stopped=false;let pollTimer;let lastReport=0;
           activity=installChatActivity(ctx.locale,{onDiagnostic:value=>{
             if(stopped||Date.now()-lastReport<5000)return;lastReport=Date.now();
-            call('client-report',{runtime:{...value,build:'atelier-1.5.0'}}).catch(error=>console.error('[atelier] client diagnostic:',error));
+            call('client-report',{runtime:{...value,build:'atelier-1.6.0'}}).catch(error=>console.error('[atelier] client diagnostic:',error));
           }});
           async function refreshDisplay(){
             try{const display=await call('display');if(!stopped){activity.configure(display);updateSidebar(display);}}catch(error){console.error('[atelier] display settings:',error);}
@@ -76,7 +77,7 @@ window.__ModuleLoader__.load({
           const[stop,setStop]=React.useState(null);const hotRef=React.useRef(new Set());hotRef.current=new Set(options.snap?Object.values(summaries??{}).filter(row=>sessionRecency(row,now).hot).map(row=>row.id):[]);
           React.useEffect(()=>observeRecentStops(document,()=>hotRef.current,setStop),[]);
           const result=React.useMemo(()=>recentSessionStyles(Object.values(summaries??{}),now,options,stop),[summaries,now,options,stop]);
-          React.useEffect(()=>{call('client-report',{runtime:{build:'atelier-1.5.0',sidebar:{recent:result.recent,hot:result.hot,marks:options.marks,snap:options.snap,mode:result.mode}}}).catch(error=>console.error('[atelier] sidebar diagnostic:',error));},[result.recent,result.hot,options]);
+          React.useEffect(()=>{call('client-report',{runtime:{build:'atelier-1.6.0',sidebar:{recent:result.recent,hot:result.hot,marks:options.marks,snap:options.snap,mode:result.mode}}}).catch(error=>console.error('[atelier] sidebar diagnostic:',error));},[result.recent,result.hot,options]);
           return h('style',{'data-atelier-sidebar':'recent-v1'},result.css);
         }
         function ActivityMonitor(props){
@@ -171,7 +172,7 @@ window.__ModuleLoader__.load({
           React.useEffect(()=>{setOpened(null);},[props.sessionId]);
           const clickable=kind=>({onClick:openDetails(kind),expanded:opened?.kind===kind,controls:popoverId});
           React.useEffect(()=>{
-            call('client-report',{runtime:{build:'atelier-1.5.0',footer:{mode:'metrics-only',iconCount:8,speed:speed?.label??'—',family:modelFamily(model),model,input:compactNumber(usage.inputTokens),output:compactNumber(usage.outputTokens),cache:compactNumber(usage.cacheReadTokens),elapsed:compactDuration(elapsed),cost:costs,animation:modelFamily(model)==='gpt'?'orbital':'model-icon',clickable:true,popoverKind:opened?.kind??'',popoverNative:typeof HTMLElement!=='undefined'&&typeof HTMLElement.prototype.showPopover==='function'}}}).catch(error=>console.error('[atelier] footer diagnostic:',error));
+            call('client-report',{runtime:{build:'atelier-1.6.0',footer:{mode:'metrics-only',iconCount:8,speed:speed?.label??'—',family:modelFamily(model),model,input:compactNumber(usage.inputTokens),output:compactNumber(usage.outputTokens),cache:compactNumber(usage.cacheReadTokens),elapsed:compactDuration(elapsed),cost:costs,animation:modelFamily(model)==='gpt'?'orbital':'model-icon',clickable:true,popoverKind:opened?.kind??'',popoverNative:typeof HTMLElement!=='undefined'&&typeof HTMLElement.prototype.showPopover==='function'}}}).catch(error=>console.error('[atelier] footer diagnostic:',error));
           },[model,usage.inputTokens,usage.outputTokens,usage.cacheReadTokens,running,costs,speed?.label,opened?.kind]);
           return h('div',{className:'atelier atelier-dock','data-atelier-footer':'metrics-only','data-model-family':modelFamily(model)},
             h('button',{type:'button',className:'atelier-cell model','data-metric-tip':`${t('model')}: ${model}`,'aria-label':`${t('model')}: ${model}, ${provider}`,'aria-haspopup':'dialog','aria-expanded':opened?.kind==='model','aria-controls':opened?.kind==='model'?popoverId:undefined,onClick:openDetails('model')},h(ModelGlyph,{model,running}),h('span',{className:'atelier-value'},model),h('span',{className:'atelier-provider'},provider)),
@@ -342,6 +343,7 @@ window.__ModuleLoader__.load({
         ctx.slots.inject('conversation.view',()=>ctx.slots.register({name:'conversation.view',id:'atelier',order:35,label:()=>translate('title')},View));
         function GlobalSettings(){return h('div',{className:'atelier atelier-page'},h('style',null,css),h('h2',null,translate('settings')),h(Settings));}
         installModelSettings(ctx,React,call);
+        installReasoningAppearance(ctx,React);
         ctx.slots.inject('settings.section',()=>ctx.slots.register({name:'settings.section',id:'atelier-global',order:25,label:()=>translate('title')},GlobalSettings));
       },
     };
