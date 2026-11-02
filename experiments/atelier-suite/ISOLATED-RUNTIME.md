@@ -20,6 +20,7 @@ Before any launch:
 - Reasoning-only Host launch succeeds with autofill/modalityAutofill/defaultGuard/uaOverride disabled for minimal admission. A fixture-owned one-shot audit confirmed exactly one `dsh-better-reasoning-effort` Client graph entry and available model/settings services. The server was stopped and its job collected after each check.
 - Browser boot/interaction remains unverified: direct HTTP index request returned 401, and injected browser session start hit the five-session limit. No auth bypass or foreign window closure was attempted. A graph entry is not proof of mounted Client effects or parity.
 - Full-default reasoning config `{}` also boots successfully on a fresh empty fixture, with exactly one Client graph entry. A separate restart using the same fixture with that row disabled reports zero reasoning entries while model/settings services remain available. Both servers were stopped and jobs collected. This verifies startup graph selection, NOT live hot-unload or UI cleanup.
+- Complete dsh-context0.73.3 with default config also boots in a separate empty context fixture. The audit shows context Client entries=1, reasoning entries=0, model/settings services available. Server stopped and job collected; Context UI, history analytics and Fleet remain unverified.
 - Settings migration, model/UI behavior, live disposal/rollback and browser/context parity tests remain outstanding; no model request was made.
 
 No native rebuild or dependency installation scripts have been approved or run.

@@ -29,7 +29,7 @@ Pinned modules: Atelier1.6.0, Better Reasoning Effort0.5.4, dsh-context0.73.3, B
 
 ## Guarded handoff planner
 
-`migration-plan.mjs` is a pure, no-write admission planner. It rejects duplicate active implementations, pending/loading/unloading transitions, missing configuration review, and open BrowserSkill sessions. It requires explicit exact-ID disposal confirmation before emitting an isolated-enable plan. It never permits automatic removal, serializes no configuration/secrets, and treats local/public Atelier as competing implementations. Six candidate/plan tests pass. These tests use synthetic inventory; the planner is not yet connected to real plugin-manager operations and cannot itself enforce ownership or perform rollback.
+`migration-plan.mjs` is a pure, no-write admission planner. It rejects duplicate active implementations, pending/loading/unloading transitions, missing configuration review, and open BrowserSkill sessions. It requires explicit exact-ID disposal confirmation before emitting an isolated-enable plan. It never permits automatic removal, serializes no configuration/secrets, and treats local/public Atelier as competing implementations. Twelve candidate/plan/config-transfer tests pass. `config-transfer.mjs` preserves explicit raw row config and expressions, keeps the candidate disabled, refuses redacted/unverified snapshots, detects source changes and blocks rollback over a changed target. Transfer plans contain private raw configuration and MUST NOT be logged or committed. Tests use synthetic data only; neither planner nor transfer is connected to real plugin-manager writes, and actual rollback has not been exercised.
 
 ## Remaining engineering
 

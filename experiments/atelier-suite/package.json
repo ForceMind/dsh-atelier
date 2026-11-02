@@ -14,6 +14,6 @@
     "dsh-context": "0.73.3",
     "@wxg-prc-cpg/browser-skill-dsh-plugin": "0.3.3"
   },
-  "scripts": {"test": "node --test suite.test.mjs migration-plan.test.mjs"},
+  "scripts": {"test": "node --test suite.test.mjs migration-plan.test.mjs config-transfer.test.mjs"},
   "dsh": {"bundle": {"patch": "./cordis.patch.yml"}}
 }
