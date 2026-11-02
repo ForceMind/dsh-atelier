@@ -5,6 +5,7 @@ import { recentSessionStyles, sessionRecency, observeRecentStops } from './sessi
 import { installModelSettings } from './model-settings-ui.mjs';
 import { parsePriceDraft, patchPriceRule, appendPriceRules } from './price-editor.mjs';
 import { installReasoningAppearance } from './reasoning-appearance.mjs';
+import { installIntegrationHub } from './integration-hub.mjs';
 window.__ModuleLoader__.load({
   id: 'dsh-atelier-plugin',
   factory(require) {
@@ -344,6 +345,7 @@ window.__ModuleLoader__.load({
         function GlobalSettings(){return h('div',{className:'atelier atelier-page'},h('style',null,css),h('h2',null,translate('settings')),h(Settings));}
         installModelSettings(ctx,React,call);
         installReasoningAppearance(ctx,React);
+        installIntegrationHub(ctx,React);
         ctx.slots.inject('settings.section',()=>ctx.slots.register({name:'settings.section',id:'atelier-global',order:25,label:()=>translate('title')},GlobalSettings));
       },
     };

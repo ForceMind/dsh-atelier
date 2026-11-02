@@ -39,3 +39,12 @@ test('expired previews never mutate and conflicts require a fresh preview',async
   await assert.rejects(manager.operate({action:'model-apply',previewId:stale.previewId}),/conflict/);assert.equal(calls,1);
   await assert.rejects(manager.operate({action:'model-apply',previewId:stale.previewId}),/过期/);assert.equal(calls,1);assert.equal(desc.value.providers.test.models[0].maxTokens,20);
 });
+
+test('reasoning capability read separates catalog default from channel fallback without writes',async()=>{
+  const desc=descriptor();desc.value.providers.test.reasoning='low';let writes=0;
+  const llm={listConfigurableProviders:()=>[entry],listModels:async()=>[{id:'a',name:'A'}],resolveModelInfo:async()=>({reasoning:{efforts:[{id:'low'},{id:'high'}],defaultEffort:'high'}})};
+  const settings={describe:()=>[desc],mutate:async()=>{writes++;}};
+  const manager=createModelManager({get:key=>({llm,settings}[key])});const result=await manager.operate({action:'models',provider:'test'});
+  assert.deepEqual(result.models[0].efforts,['low','high']);assert.equal(result.models[0].reasoningDefault,'high');assert.equal(result.channelReasoning,'low');assert.equal(writes,0);assert.ok(!JSON.stringify(result).includes('PRIVATE'));
+  desc.value.providers.test.reasoning={__jsExpr:'secret'};assert.equal((await manager.operate({action:'models',provider:'test'})).channelReasoning,null);
+});

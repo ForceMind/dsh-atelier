@@ -40,14 +40,15 @@ export function createModelManager(ctx,{now=()=>Date.now(),makeId}={}){
     const {llm,settings}=services();const entry=llm.listConfigurableProviders().find(row=>row.provider===provider&&row.settingsNs==='llm-pi-ai');if(!entry)throw new Error('仅支持 pi-ai 渠道');
     const descriptor=settings.describe({redactSecrets:true}).find(row=>row.ns===entry.settingsNs);if(!descriptor)throw new Error('渠道设置未挂载');
     const listed=await llm.listModels(provider);if(listed.length>500)throw new Error('模型过多，请使用原生编辑器');
-    const models=[];for(const row of listed){const info=await llm.resolveModelInfo(provider,row.id);models.push({id:row.id,name:row.name,contextWindow:info.context?.contextWindow??null,maxTokens:info.defaultMaxTokens??null,efforts:info.reasoning?.efforts?.map(item=>item.id)??[]});}
-    return {entry,descriptor,models};
+    const models=[];for(const row of listed){const info=await llm.resolveModelInfo(provider,row.id);models.push({id:row.id,name:row.name,contextWindow:info.context?.contextWindow??null,maxTokens:info.defaultMaxTokens??null,efforts:info.reasoning?.efforts?.map(item=>item.id)??[],reasoningDefault:info.reasoning?.defaultEffort??null});}
+    const fallback=at(descriptor.value,entry.settingsPath)?.reasoning;
+    return {entry,descriptor,models,channelReasoning:typeof fallback==='string'?fallback:null};
   }
   return {async operate(input){
     const {llm,settings}=services();
     if(input.action==='models'){
       const configured=settings.describe({redactSecrets:true});const providers=llm.listConfigurableProviders().filter(row=>row.settingsNs==='llm-pi-ai'&&at(configured.find(item=>item.ns===row.settingsNs)?.value,row.settingsPath)).map(row=>({id:row.provider,name:row.displayName}));
-      if(!input.provider)return {providers,models:[]};const value=await snapshot(input.provider);return {providers,provider:input.provider,models:value.models,revision:value.descriptor.revision};
+      if(!input.provider)return {providers,models:[]};const value=await snapshot(input.provider);return {providers,provider:input.provider,models:value.models,channelReasoning:value.channelReasoning,reasoningSource:'llm.resolveModelInfo; channel fallback from settings; no configuration writes',revision:value.descriptor.revision};
     }
     if(input.action==='model-preview'){
       const value=await snapshot(input.provider);const plan=capacityPlan({...value,changes:input.changes});for(const[id,item]of pending)if(item.expires<now())pending.delete(id);if(pending.size>=10)pending.delete(pending.keys().next().value);
