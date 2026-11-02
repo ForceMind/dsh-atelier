@@ -14,6 +14,8 @@ export function planHandoff({key,inventory,confirmedInactive=[],browserSessions=
  const targets=matches.filter(row=>row.patchId===spec.target||exactId(row)===spec.target||exactId(row)==='include:'+spec.target);
  if(targets.length!==1)throw Error('Expected exactly one suite target');const target=targets[0];
  const old=matches.filter(row=>row!==target);
+ if(matches.some(row=>typeof exactId(row)!=='string'||!exactId(row)||typeof row.enabled!=='boolean'||!['active','disabled','failed','pending','loading','unloading'].includes(row.fiberPhase)))throw Error('Incomplete or unknown lifecycle inventory');
+ if(new Set(matches.map(exactId)).size!==matches.length)throw Error('Duplicate inventory identities');
  const unstable=matches.filter(row=>transitional.has(row.fiberPhase));
  if(unstable.length)throw Error('Module lifecycle unsettled');
  const live=matches.filter(row=>row.fiberPhase==='active');
