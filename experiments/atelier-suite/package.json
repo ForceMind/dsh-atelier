@@ -1,0 +1,19 @@
+{
+  "name": "@forcemind/dsh-atelier-suite",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "description": "Atelier integration candidate: exact upstream runtime modules, disabled until migration is verified.",
+  "exports": {".": "./index.js", "./locale/*.json": "./locale/*.json", "./icon": "./icon.svg"},
+  "files": ["index.js", "cordis.patch.yml", "locale/*.json", "icon.svg", "README.md", "THIRD-PARTY.md"],
+  "engines": {"node": ">=22.19.0", "dsh": ">=0.2.1-rc.5 <0.3.0"},
+  "dependencies": {
+    "dsh-atelier-plugin": "1.6.0",
+    "dsh-better-reasoning-effort": "0.5.4",
+    "dsh-context": "0.73.3",
+    "@wxg-prc-cpg/browser-skill-dsh-plugin": "0.3.3"
+  },
+  "scripts": {"test": "node --test suite.test.mjs migration-plan.test.mjs"},
+  "dsh": {"bundle": {"patch": "./cordis.patch.yml"}}
+}

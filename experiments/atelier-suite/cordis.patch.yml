@@ -1,0 +1,19 @@
+# Candidate only. Original direct bundles stay active until an explicit migration.
+# Unique row IDs prevent implicit takeover of saved row config.
+# NEVER enable a suite module while the same standalone package is active.
+- insert:
+    - id: atelier-suite
+      name: '@forcemind/dsh-atelier-suite'
+    - id: atelier-suite-workbench
+      name: 'dsh-atelier-plugin'
+      disabled: true
+      config: {}
+    - id: atelier-suite-reasoning
+      name: 'dsh-better-reasoning-effort'
+      disabled: true
+    - id: atelier-suite-context
+      name: 'dsh-context'
+      disabled: true
+    - id: atelier-suite-browser
+      name: '@wxg-prc-cpg/browser-skill-dsh-plugin'
+      disabled: true
