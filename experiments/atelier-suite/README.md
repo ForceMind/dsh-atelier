@@ -1,6 +1,6 @@
 # Atelier Suite candidate
 
-This is an uninstalled integration candidate, not a completed replacement.
+This is a not-yet-released integration candidate, not a completed daily-profile replacement. A real installation/standalone-removal/restart/rollback test passed in an empty rc.5 profile; see [ownership test evidence](OWNERSHIP-TEST.md).
 
 ## Meaning of consolidation
 
@@ -17,7 +17,7 @@ BrowserSkill remains independent by explicit user decision. It is not installed,
 - Matching rc.5 client-modules documentation confirms enabled-Loader-entry scanning, asynchronous disposal on disable, and rejection of distinct active sources for one package name. This is a documented contract, not an executed suite transition test; isolated composition and runtime checks remain required.
 - Workspace-only `npm install --ignore-scripts --legacy-peer-deps --no-audit --no-fund` completed and generated a lockfile. `verify-artifacts.mjs` confirmed every pinned version, Host/Client entry and license. No installation scripts ran.
 - `npm ls` reports required host peers missing in this standalone directory. This is NOT a clean runtime: Cordis/DSH services/React must be provided by a compatible Harness environment, not silently duplicated to suppress the warning.
-- Candidate uses published Atelier1.6.0, not later local unshipped integration hub changes.
+- Checked-in candidate manifest still pins published Atelier1.6.0 and is not ready for release. `prepare-ownership-fixture.mjs` produces a private Suite variant referencing a freshly frozen Atelier1.7.0-suite.0 tarball with latest accepted features; that exact variant was installed, became the sole external direct dependency, booted successfully, and was rolled back through official CLI operations. Its local tarball dependency is fixture-only, not portable.
 - No bundledDependencies yet: normal dependency resolution fetches upstream npm packages, not an offline artifact. Native peer resolution and no-duplicate React/Cordis require inspection.
 
 ## Required migration order
