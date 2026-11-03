@@ -14,6 +14,3 @@
     - id: atelier-suite-context
       name: 'dsh-context'
       disabled: true
-    - id: atelier-suite-browser
-      name: '@wxg-prc-cpg/browser-skill-dsh-plugin'
-      disabled: true

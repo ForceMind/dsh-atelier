@@ -43,7 +43,7 @@
 
 - [x] 2026-11-02 本地新增“设置 → 整合与依赖”：统一上下文洞察／插件管理导航，明确四个插件职责和保留要求。105 项测试通过，当前 rc.5 Client 已确认设置插槽注册，修复 layout 注入范围后用户已验收两个跳转。该入口尚未发布到 npm。
 - [x] 第一批独立思考信息读取：从正式 llm 模型服务与 settings 描述返回支持档位、目录默认与渠道回退，渠道表分开只读显示；不写配置，不调用原插件私有模块。106 项测试通过，本地已加载；实际新增字段待用户验收。
-- [ ] Reasoning Effort / BrowserSkill / dsh-context 功能迁移与替代验证尚未完成。当前宿主升级为 0.2.1-rc.5，仍启用本地 Atelier（清单版本1.5.0，源码含后续更新）、BRE0.5.4、BrowserSkill0.3.3、dsh-context0.73.3；未禁用或卸载。保留每个插件的权限、存储与生命周期。
+- [ ] Reasoning Effort / dsh-context 功能迁移与替代验证尚未完成。BrowserSkill 按用户决定保持独立，已从候选依赖、Loader 行和迁移逻辑移出；不卸载现有浏览器插件、CLI 或扩展。当前宿主升级为 0.2.1-rc.5，仍启用本地 Atelier（清单版本1.5.0，源码含后续更新）、BRE0.5.4、BrowserSkill0.3.3、dsh-context0.73.3；未禁用或卸载。保留每个插件的权限、存储与生命周期。
 
 ## 可选建议，未承诺交付
 
@@ -51,4 +51,4 @@
 
 ## English summary
 
-Version 1.6.0 is published on npm (including latest) and GitHub; the downloaded registry tarball matches the reviewed artifact. The supplied Kimi price table is fully recorded; only internal channel/model mapping remains to be checked, not another request for user prices. Independent price verification is optional maintenance, while upstream cache effectiveness remains unproven. Marketplace PR 9524 is merged, and the configured index exposes 1.5.0; the next version needs a separate refresh check. The Saturn source experiment is archived and explicitly deferred from production activation. Three-plugin integration is assessed, not implemented or implicitly authorized. Optional budget/log/export/update features are suggestions, not delivery promises.
+Version 1.6.0 is published on npm (including latest) and GitHub; the downloaded registry tarball matches the reviewed artifact. The supplied Kimi price table is fully recorded; only internal channel/model mapping remains to be checked, not another request for user prices. Independent price verification is optional maintenance, while upstream cache effectiveness remains unproven. Marketplace PR 9524 is merged, and the configured index exposes 1.5.0; the next version needs a separate refresh check. The Saturn source experiment is archived and explicitly deferred from production activation. Reasoning/context integration is still under validation; BrowserSkill is explicitly excluded and retained independently. Optional budget/log/export/update features are suggestions, not delivery promises.

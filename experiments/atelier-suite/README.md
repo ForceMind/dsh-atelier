@@ -4,9 +4,11 @@ This is an uninstalled integration candidate, not a completed replacement.
 
 ## Meaning of consolidation
 
-One installation supplies pinned complete upstream modules. Removing a separate top-level installation is possible only after migration; the dependency code remains required. This is packaging consolidation, not a claim that Atelier independently reimplemented browser automation, reasoning compatibility or context analytics. Dependency installation alone does not prove activation or safe removal.
+One installation supplies pinned complete upstream modules. Removing a separate top-level installation is possible only after migration; the dependency code remains required. This is packaging consolidation, not a claim that Atelier independently reimplemented reasoning compatibility or context analytics. Dependency installation alone does not prove activation or safe removal.
 
-Pinned modules: Atelier1.6.0, Better Reasoning Effort0.5.4, dsh-context0.73.3, BrowserSkill plugin0.3.3. The upstream package names/client IDs remain unchanged. BrowserSkill still requires matching CLI and browser extension; neither is distributed by this candidate.
+Pinned modules: Atelier1.6.0, Better Reasoning Effort0.5.4 and dsh-context0.73.3. The upstream package names/client IDs remain unchanged.
+
+BrowserSkill remains independent by explicit user decision. It is not installed, activated, migrated or removed by this candidate. Its CLI, browser extension, permissions and pairing remain independently managed.
 
 ## Current state
 
@@ -22,14 +24,14 @@ Pinned modules: Atelier1.6.0, Better Reasoning Effort0.5.4, dsh-context0.73.3, B
 
 1. Inspect complete current configurations through sanctioned config mechanisms; preserve expressions and secrets without writing them to repository. Unique suite row IDs change Config identity: copy reviewed configuration before enabling, test settings links and upstream hard-coded namespaces.
 2. Isolated composition tests for exact host versions, dependencies, client discovery, metadata and all feature acceptance tests. Never exercise by deleting real data or sending paid probes.
-3. Stop BrowserSkill-owned sessions through its normal lifecycle; preserve browser pairing and CLI state.
+3. Leave the independent BrowserSkill installation, sessions and pairing untouched.
 4. With explicit user confirmation, disable one old row, enable the matching suite row, verify exactly one host/client instance. BRE double activation can duplicate prepareCall/stream/fetch wrappers; scanner dedup alone is insufficient.
-5. Verify feature parity, saved model/default/memory behavior, settings readback, context/history/Fleet, browser tools/skills/help/cleanup. Fail closed and restore the old row on any problem.
+5. Verify feature parity, saved model/default/memory behavior, settings readback, context/history/Fleet. Fail closed and restore the old row on any problem.
 6. Only after parity passes and user confirmation, remove standalone installation records, not transitive dependency contents. Verify plugin-manager ownership: removing or disabling an old bundle must not turn off shared suite runtime rows.
 
 ## Guarded handoff planner
 
-`migration-plan.mjs` is a pure, no-write admission planner. It rejects duplicate active implementations, pending/loading/unloading transitions, missing configuration review, and open BrowserSkill sessions. It requires explicit exact-ID disposal confirmation before emitting an isolated-enable plan. It never permits automatic removal, serializes no configuration/secrets, and treats local/public Atelier as competing implementations. Twelve candidate/plan/config-transfer tests pass. `config-transfer.mjs` preserves explicit raw row config and expressions, keeps the candidate disabled, refuses redacted/unverified snapshots, detects source changes and blocks rollback over a changed target. Transfer plans contain private raw configuration and MUST NOT be logged or committed. Tests use synthetic data only; neither planner nor transfer is connected to real plugin-manager writes, and actual rollback has not been exercised.
+`migration-plan.mjs` is a pure, no-write admission planner. It rejects duplicate active implementations, pending/loading/unloading transitions, missing configuration review. It requires explicit exact-ID disposal confirmation before emitting an isolated-enable plan. It never permits automatic removal, serializes no configuration/secrets, and treats local/public Atelier as competing implementations. Twelve candidate/plan/config-transfer tests pass. `config-transfer.mjs` preserves explicit raw row config and expressions, keeps the candidate disabled, refuses redacted/unverified snapshots, detects source changes and blocks rollback over a changed target. Transfer plans contain private raw configuration and MUST NOT be logged or committed. Tests use synthetic data only; neither planner nor transfer is connected to real plugin-manager writes, and actual rollback has not been exercised.
 
 ## Remaining engineering
 
