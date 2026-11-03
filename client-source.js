@@ -1,5 +1,5 @@
 import { installChatActivity } from './activity.mjs';
-import { compactNumber, compactDuration, compactMoney, modelFamily, liveOutputThroughput } from './ui-format.mjs';
+import { compactNumber, compactDuration, compactMoney, modelFamily, liveOutputThroughput, sessionTiming } from './ui-format.mjs';
 import { metricCopy, metricDetail, popoverPosition } from './metric-details.mjs';
 import { recentSessionStyles, sessionRecency, observeRecentStops } from './session-recency.mjs';
 import { installModelSettings } from './model-settings-ui.mjs';
@@ -162,7 +162,7 @@ window.__ModuleLoader__.load({
           const t=useT();const {value,error,stats,running,now,liveSpeed}=useStatus(props);
           const last=value?.live?.[0]??value?.last;const liveRecord=running?(liveSpeed?.live??value?.live??[]).filter(row=>row.purpose==null||row.purpose==='conversation').sort((a,b)=>(b.startedAt??0)-(a.startedAt??0))[0]:null;const liveRate=liveOutputThroughput(liveRecord,liveSpeed?liveSpeed.sampledAt+Math.max(0,now-liveSpeed.receivedAt):now);const speed=liveRate?{...liveRate,model:liveRecord.model,provider:liveRecord.provider}:value?.speed??null;
           const model=stats?.model||last?.model||t('unavailable');const provider=stats?.provider||last?.provider||'—';
-          const elapsed=stats?.turnStartedAt&&running ? now-stats.turnStartedAt : stats?.turnElapsedMs;
+          const timing=sessionTiming(stats??{},running,now);const elapsed=timing.turnMs;
           const thought=(last?.purpose==='conversation'&&last.reasoningStartedAt!=null?last:null)??value?.thought??null;const reasoning=thought?.reasoningStartedAt!=null?(thought.reasoningEndedAt??now)-thought.reasoningStartedAt:null;
           const usage=stats?.usage??{};const full=n=>Number(n??0).toLocaleString();
           const costs=costLabel(value?.cost,t);
@@ -177,7 +177,7 @@ window.__ModuleLoader__.load({
           },[model,usage.inputTokens,usage.outputTokens,usage.cacheReadTokens,running,costs,speed?.label,opened?.kind]);
           return h('div',{className:'atelier atelier-dock','data-atelier-footer':'metrics-only','data-model-family':modelFamily(model)},
             h('button',{type:'button',className:'atelier-cell model','data-metric-tip':`${t('model')}: ${model}`,'aria-label':`${t('model')}: ${model}, ${provider}`,'aria-haspopup':'dialog','aria-expanded':opened?.kind==='model','aria-controls':opened?.kind==='model'?popoverId:undefined,onClick:openDetails('model')},h(ModelGlyph,{model,running}),h('span',{className:'atelier-value'},model),h('span',{className:'atelier-provider'},provider)),
-            h(Metric,{kind:'clock',...clickable('clock'),label:t('elapsed'),value:seconds(elapsed),full:`${t('elapsed')}: ${seconds(elapsed)}`}),
+            h(Metric,{kind:'clock',...clickable('clock'),label:t('elapsed'),value:`${t('elapsed')} ${seconds(elapsed)} · ${t('totalElapsed')} ${seconds(timing.totalMs)}`,full:`${t('elapsed')}: ${seconds(elapsed)}\n${t('totalElapsed')}: ${seconds(timing.totalMs)}`}),
             h(Metric,{kind:'thought',...clickable('thought'),label:t('reasoning'),value:reasoning===null?'—':seconds(reasoning),full:reasoning===null?t('noReasoning'):`${t('reasoning')}: ${seconds(reasoning)}`}),
             h(Metric,{kind:'input',...clickable('input'),label:t('input'),value:number(usage.inputTokens),full:`${t('input')}: ${full(usage.inputTokens)} tokens`}),
             h(Metric,{kind:'output',...clickable('output'),label:t('output'),value:number(usage.outputTokens),full:`${t('output')}: ${full(usage.outputTokens)} tokens`}),

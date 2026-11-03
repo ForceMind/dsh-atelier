@@ -371,7 +371,7 @@ export function foldStats(state, event) {
       result.endedTurns += 1;
       result.lastTurnReason = typeof data.reason === 'string' ? data.reason : data.reason?.kind ?? 'unknown';
       if (result.lastTurnReason === 'completed') result.completedTurns += 1;
-      result.totalTurnElapsedMs += result.turnElapsedMs;
+      if(current.turnStartedAt!==null)result.totalTurnElapsedMs += result.turnElapsedMs;
       result.turnStartedAt = null;
       result.phase = result.lastTurnReason === 'error' ? 'error' : 'idle';
       result.tool = null;

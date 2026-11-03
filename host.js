@@ -74,7 +74,7 @@ export async function apply(ctx, config) {
     return safely(() => maintenance);
   }
 
-  ctx.sessionProjections.register({key: KEY, stateVersion: 6, stateSchema: z.unknown(),
+  ctx.sessionProjections.register({key: KEY, stateVersion: 7, stateSchema: z.unknown(),
     init: () => initStats(), apply: foldStats, wire: {viewSchema: z.unknown(), view: state => state},
   });
 

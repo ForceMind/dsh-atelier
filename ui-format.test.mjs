@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {liveOutputThroughput,outputThroughput,compactNumber,compactDuration,compactMoney,modelFamily} from './ui-format.mjs';
+import {sessionTiming,liveOutputThroughput,outputThroughput,compactNumber,compactDuration,compactMoney,modelFamily} from './ui-format.mjs';
 test('live average updates with arriving tokens and pauses, clearly labeled estimated',()=>{
   const record={state:'streaming',endedAt:null,firstOutputAt:1000,outputEstimate:100};
   assert.equal(liveOutputThroughput(record,2000).label,'≈100.0 tok/s');
@@ -27,4 +27,10 @@ test('API equivalent amount includes correct currency and small fractions',()=>{
 });
 test('GPT family aliases choose the orbit mark without claiming official model identity',()=>{
   assert.equal(modelFamily('gpt-6.1-sol'),'gpt');assert.equal(modelFamily('openai/gpt-5.2'),'gpt');assert.equal(modelFamily('o3-mini'),'gpt');assert.equal(modelFamily('deepseek-chat'),'deepseek');assert.equal(modelFamily('claude-sonnet-4'),'claude');assert.equal(modelFamily('myapi'),'generic');
+});
+
+test('session timing adds active turn once and excludes idle gaps including epoch zero',()=>{
+ assert.deepEqual(sessionTiming({turnStartedAt:0,turnElapsedMs:5,totalTurnElapsedMs:100},true,50),{turnMs:50,totalMs:150});
+ assert.deepEqual(sessionTiming({turnStartedAt:null,turnElapsedMs:50,totalTurnElapsedMs:150},false,100000),{turnMs:50,totalMs:150});
+ assert.deepEqual(sessionTiming({turnStartedAt:200,totalTurnElapsedMs:150},true,230),{turnMs:30,totalMs:180});
 });

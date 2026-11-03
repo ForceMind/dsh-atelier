@@ -380,3 +380,8 @@ test('stats aggregates same models, supports parallel tool phases and normalizes
   assert.equal(state.phase, 'error');
   assert.equal(state.lastTurnReason, 'error');
 });
+
+test('total turn duration survives multiple turns and repeated end does not add again',()=>{
+ let state=initStats();for(const event of [{type:'turn/start',seq:0,time:1000,data:{turn:1}},{type:'turn/end',seq:1,time:4000,data:{turn:1}},{type:'turn/end',seq:2,time:5000,data:{turn:1}},{type:'turn/start',seq:3,time:100000,data:{turn:2}},{type:'turn/end',seq:4,time:102000,data:{turn:2}}])state=foldStats(state,event);
+ assert.equal(state.totalTurnElapsedMs,5000);assert.equal(state.turnElapsedMs,2000);
+});

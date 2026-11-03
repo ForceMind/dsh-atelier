@@ -55,3 +55,10 @@ export function modelFamily(value) {
   if(model.includes('gemini'))return 'gemini';
   return 'generic';
 }
+
+export function sessionTiming(stats={},running=false,now=Date.now()) {
+  const valid=value=>typeof value==='number'&&Number.isFinite(value)&&value>=0;
+  const active=running&&valid(stats.turnStartedAt);
+  const turnMs=active?Math.max(0,now-stats.turnStartedAt):valid(stats.turnElapsedMs)?stats.turnElapsedMs:0;
+  return {turnMs,totalMs:(valid(stats.totalTurnElapsedMs)?stats.totalTurnElapsedMs:0)+(active?turnMs:0)};
+}

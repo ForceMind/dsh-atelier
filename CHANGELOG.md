@@ -4,6 +4,8 @@ All notable public-release changes are documented here. Versions follow Semantic
 
 ## [Unreleased]
 
+- Show current/latest turn time and cumulative session running time together in the footer, including the active turn but excluding idle gaps. Clock details expose both values. Guard duplicate end events from double-counting; projection stateVersion 7 replays the corrected fold. User accepted the local display; 108 checks pass.
+
 - Permanent session deletion is planned as a host lifecycle extension, not shipped or simulated by archive.
 
 ## [1.6.0] - 2026-10-30
