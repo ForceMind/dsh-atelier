@@ -6,6 +6,8 @@ import{execFileSync}from'node:child_process';
 import{createHash}from'node:crypto';
 const root=fileURLToPath(new URL('../../',import.meta.url));
 const version='1.7.0-suite.0';
+const canonical=process.argv.includes('--canonical');
+if(process.argv.slice(2).some(arg=>arg!=='--canonical'))throw Error('Unsupported fixture option');
 const run=(command,args,cwd=root)=>execFileSync(command,args,{cwd,encoding:'utf8',stdio:['ignore','pipe','pipe']});
 run(process.execPath,['build-client.mjs']);run('npm',['run','check']);
 const[pkgFiles]=JSON.parse(run('npm',['pack','--dry-run','--ignore-scripts','--json']));
@@ -25,7 +27,8 @@ const candidate=resolve(out,'suite');await mkdir(candidate);
 const src=fileURLToPath(new URL('./',import.meta.url));
 for(const path of['index.js','cordis.patch.yml','icon.svg','README.md','THIRD-PARTY.md','locale/en.json','locale/zh.json']){const target=resolve(candidate,path);await mkdir(dirname(target),{recursive:true});await writeFile(target,await readFile(resolve(src,path)));}
 const manifest=JSON.parse(await readFile(resolve(src,'package.json'),'utf8'));
-manifest.version='0.1.0-ownership.0';manifest.dependencies['dsh-atelier-plugin']='file:'+resolve(out,packed.filename);
+manifest.version=canonical?'0.1.0-ownership.2':'0.1.0-ownership.0';manifest.dependencies['dsh-atelier-plugin']='file:'+resolve(out,packed.filename);
+if(canonical){const rows=[{id:'atelier-suite',name:manifest.name},{id:'dsh-atelier',name:'dsh-atelier-plugin',disabled:true,config:{}},{id:'dsh-better-reasoning-effort',name:'dsh-better-reasoning-effort',disabled:true},{id:'dsh-context',name:'dsh-context',disabled:true}];await writeFile(resolve(candidate,'cordis.patch.yml'),'# Exclusive stopped-host fixture; original bundle layers must be absent.\n- insert:\n'+rows.map(row=>'    - '+JSON.stringify(row)).join('\n')+'\n');}
 await writeFile(resolve(candidate,'package.json'),JSON.stringify(manifest,null,2)+'\n');
 const[suite]=JSON.parse(run('npm',['pack',candidate,'--ignore-scripts','--pack-destination',out,'--json']));
 const artifacts=[];

@@ -4,6 +4,8 @@
 
 The supported configEditor service persisted synthetic non-default row configuration in the isolated rc.5 profile. A real Suite tarball migrated that configuration into its own row IDs; after removing original direct installation records and booting Suite, every chosen value matched. Restoring independent packages and removing Suite preserved the original row values as well.
 
+**Correction after deeper inspection:** these are Host raw-config readback results only. Context Client hardcodes the original settings namespace and bundle key; changed suite row IDs do not preserve that binding. See [configuration identity gate](CONFIG-IDENTITY.md) for the discovered blocker and a separately tested canonical-ID fixture. Settings button fallback is now explained by its exact old-package DOM selector, not merely a hypothesis.
+
 No daily profile, real credentials or real conversation was read or changed. This is an executed synthetic row-config migration test, not proof of complete real-user migration or data-store continuity.
 
 ## Exact configuration tested
