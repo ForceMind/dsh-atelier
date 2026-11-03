@@ -32,6 +32,10 @@ Test Suite `@forcemind/dsh-atelier-suite@0.1.0-ownership.0` references that exac
 6. Fixture-only `--patch` overrides `disabled:false` on the installed Suite's existing module IDs. It does NOT insert alternative copies of those module rows. Real Host launch succeeds; graph contains reasoning1/context1. Host `clientModules.clientPath` content check confirms actual published Atelier client contains candidate label1.7.0-suite.0 and `sessionTiming`, so adjacent runtime Atelier1.6.0 was not mistaken for the candidate. All configs are defaults in this test.
 7. Host stopped before rollback. Official CLI re-added the three original direct dependencies, then removed Suite. Readback restores three original selected external bundle layers and removes Suite declaration. Host boot using those original bundle layers succeeds; graph reasoning1/context1 and latest-baseline timing remains present. Server stopped and job collected.
 
+## Follow-up: non-default settings and real Suite page
+
+See [executed non-default configuration test](NONDEFAULT-CONFIG-TEST.md): synthetic row settings survived Suite takeover and rollback; Context Insights empty state and one installed Suite bundle with all components running were observed in the exact installed artifact. Context's settings button currently lands on the generic plugin list; cause requires further inspection.
+
 ## What remains
 
 - Real user-config transfer, settings identity and local storage continuity across old/suite row names.
