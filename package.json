@@ -51,6 +51,8 @@
     "price-book.mjs",
     "reasoning-appearance.mjs",
     "integration-hub.mjs",
+    "reply-draft.mjs",
+    "reply-draft-ui.mjs",
     "build-client.mjs",
     "core.mjs",
     "price-catalog.mjs",
@@ -67,8 +69,8 @@
   ],
   "scripts": {
     "build": "node build-client.mjs",
-    "check": "node --check host.js && node --check client.js && node --test core.test.mjs host.test.mjs activity.test.mjs ui-format.test.mjs metric-details.test.mjs cache-diagnostics.test.mjs session-recency.test.mjs model-manager.test.mjs price-editor.test.mjs price-book.test.mjs reasoning-appearance.test.mjs integration-hub.test.mjs release.test.mjs",
-    "test": "node --test core.test.mjs host.test.mjs activity.test.mjs ui-format.test.mjs metric-details.test.mjs cache-diagnostics.test.mjs session-recency.test.mjs model-manager.test.mjs price-editor.test.mjs price-book.test.mjs reasoning-appearance.test.mjs integration-hub.test.mjs release.test.mjs",
+    "check": "node --check host.js && node --check client.js && node --test core.test.mjs host.test.mjs activity.test.mjs ui-format.test.mjs metric-details.test.mjs cache-diagnostics.test.mjs session-recency.test.mjs model-manager.test.mjs price-editor.test.mjs price-book.test.mjs reasoning-appearance.test.mjs integration-hub.test.mjs reply-draft.test.mjs reply-draft-ui.test.mjs release.test.mjs",
+    "test": "node --test core.test.mjs host.test.mjs activity.test.mjs ui-format.test.mjs metric-details.test.mjs cache-diagnostics.test.mjs session-recency.test.mjs model-manager.test.mjs price-editor.test.mjs price-book.test.mjs reasoning-appearance.test.mjs integration-hub.test.mjs reply-draft.test.mjs reply-draft-ui.test.mjs release.test.mjs",
     "prepack": "node build-client.mjs"
   },
   "dependencies": {

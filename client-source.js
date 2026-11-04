@@ -6,6 +6,7 @@ import { installModelSettings } from './model-settings-ui.mjs';
 import { parsePriceDraft, patchPriceRule, appendPriceRules } from './price-editor.mjs';
 import { installReasoningAppearance } from './reasoning-appearance.mjs';
 import { installIntegrationHub } from './integration-hub.mjs';
+import { installReplyDraft } from './reply-draft-ui.mjs';
 window.__ModuleLoader__.load({
   id: 'dsh-atelier-plugin',
   factory(require) {
@@ -346,6 +347,7 @@ window.__ModuleLoader__.load({
         installModelSettings(ctx,React,call);
         installReasoningAppearance(ctx,React);
         installIntegrationHub(ctx,React);
+        installReplyDraft(ctx,React,call);
         ctx.slots.inject('settings.section',()=>ctx.slots.register({name:'settings.section',id:'atelier-global',order:25,label:()=>translate('title')},GlobalSettings));
       },
     };

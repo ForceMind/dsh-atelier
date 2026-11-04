@@ -1,6 +1,7 @@
 import Schema from '@deepseek-ai/schemastery';
 import { z } from 'zod';
 import {createModelManager} from './model-manager.mjs';
+import {createReplyDraftService} from './reply-draft.mjs';
 import { randomUUID } from 'node:crypto';
 import {outputThroughput} from './ui-format.mjs';
 import {referencePriceBook,activePriceRules} from './price-book.mjs';
@@ -216,11 +217,13 @@ export async function apply(ctx, config) {
       price: priceUsage(record.usage ?? {inputTokens:record.inputEstimate,outputTokens:record.outputEstimate,inputIncludesCache:false},record.provider,record.model,activePriceRules(settings))};
   }
   const modelManager=createModelManager(ctx,{makeId:randomUUID});
+  const replyDraft=createReplyDraftService({getAgent:id=>ctx.agents.get(id),getLlm:()=>ctx.get('llm')});ctx.effect(()=>()=>replyDraft.dispose());
   const service = {
     async operate(input, callerSessionId) {
       if (!input || typeof input !== 'object') throw new Error('操作参数必须是对象');
       const action = input.action ?? 'status';
       const sessionId = callerSessionId ?? input.sessionId;
+      if(action==='reply-draft')return replyDraft.generate(sessionId);
       if(['models','model-preview','model-apply'].includes(action))return modelManager.operate(input);
       if (action === 'client-report') {
         const value=input.runtime??{};
@@ -324,11 +327,11 @@ export async function apply(ctx, config) {
     },
   });
   ctx.tools.register({
-    name:'atelier', description:'查看用量、cache诊断和本会话请求日志，管理工作台设置，或用 models → model-preview → model-apply 预览并批量设置一个渠道现有模型的上下文/输出上限。日志可能含敏感代码；按需分页。',
-    parameters:{type:'object',properties:{action:{type:'string',enum:['status','settings','save','logs','get','diagnose','display','cache','models','model-preview','model-apply']},provider:{type:'string',description:'models/model-preview 的精确渠道 ID。'},changes:{type:'object',properties:{contextWindow:{type:'integer',minimum:1,maximum:10000000},maxTokens:{type:'integer',minimum:1,maximum:10000000}},additionalProperties:false,description:'model-preview 要覆盖的容量字段，未传字段保持不变。'},previewId:{type:'string',description:'model-apply 使用最近预览返回的 ID，5分钟有效。'},sessionId:{type:'string'},id:{type:'string'},view:{type:'string',enum:['json','text','chunks','response']},offset:{type:'integer'},limit:{type:'integer'},revision:{type:'integer'},settings:{type:'object',description:'save 时传完整设置；先用 settings 读取版本。'}},required:['action']},
+    name:'atelier', description:'查看工作台用量、cache与本会话日志，管理设置和模型容量。reply-draft 用最近助手消息的模型发起一次显式关闭思考的短请求（可能收费），仅返回用户回复草稿，不发送消息或修改当前选择。日志按需分页。',
+    parameters:{type:'object',properties:{action:{type:'string',enum:['status','settings','save','logs','get','diagnose','display','cache','reply-draft','models','model-preview','model-apply']},provider:{type:'string',description:'models/model-preview 的精确渠道 ID。'},changes:{type:'object',properties:{contextWindow:{type:'integer',minimum:1,maximum:10000000},maxTokens:{type:'integer',minimum:1,maximum:10000000}},additionalProperties:false,description:'model-preview 要覆盖的容量字段，未传字段保持不变。'},previewId:{type:'string',description:'model-apply 使用最近预览返回的 ID，5分钟有效。'},sessionId:{type:'string'},id:{type:'string'},view:{type:'string',enum:['json','text','chunks','response']},offset:{type:'integer'},limit:{type:'integer'},revision:{type:'integer'},settings:{type:'object',description:'save 时传完整设置；先用 settings 读取版本。'}},required:['action']},
     output:{schema:{},render:(_args,value)=>[{type:'text',text:JSON.stringify(value)}]},
     async execute(args,exec) {return service.operate(args,exec.agent?.id);},
-    isConcurrencySafe: args=>!['save','model-apply'].includes(args.action),
+    isConcurrencySafe: args=>!['save','model-apply','reply-draft'].includes(args.action),
   });
   ctx.commands.register({name:'atelier',description:'显示此会话工作台状态（设置、日志和价格位于工作台视图）',handler:async invocation=>({kind:'success',text:JSON.stringify(await service.operate({action:'status'},invocation.agent.id),null,2)})});
   await prune();
