@@ -4,6 +4,8 @@ All notable public-release changes are documented here. Versions follow Semantic
 
 ## [Unreleased]
 
+- Added explicit user-only Send suggestion action beside the candidate. Tab still only accepts. Uses guarded insertion, then revalidates exact draft/revision/session before native submit; one candidate cannot send twice, changes fail closed and no submission retry is added.151 checks pass; isolated mock UI confirms one new user message and normal follow-up response via keyboard activation.
+
 - Task-aware reply candidates now read up to6 recent user turns/12 user-assistant text rows, capped at24K text characters with explicit truncation. Prompt prefers concrete progress-oriented replies over deferred acknowledgements; sensitive operations still require confirmation and candidates are never authorization. Excludes system/developer, reasoning, tool and attachment content; recent-context changes invalidate results. Live read-only options confirm contextPolicy v2.148 checks pass; output quality with real Luna remains user-reviewed, not guaranteed by mock tests.
 
 - Suggestions now use an independently selected model, defaulting to available Luna (preferring exact gpt-6-luna); read-only catalog and validated revision-checked saves never change conversation selection. Replaced the separate draft/gear/arrow controls with one left-side Suggestions button and consolidated settings. Candidate presence conditionally hides native placeholder and reserves Tab space.142 checks pass; local UI confirms hidden placeholder, empty actual input and typing discards the candidate. Daily route readback resolves myapi/gpt-6-luna; no paid Luna probe.
