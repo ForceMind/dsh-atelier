@@ -388,6 +388,11 @@ window.__ModuleLoader__.load({
      const observer=Observer?new Observer(notify):null;observer?.observe(editor,{attributes:true,attributeFilter:['data-composer-composing','contenteditable']});
      return{read:()=>({editor,touch,editable:active&&editor.isConnected&&editor.isContentEditable,composing:composing||now()<until||editor.hasAttribute('data-composer-composing')}),dispose(){active=false;clearTimeout(timer);observer?.disconnect();editor.removeEventListener('compositionstart',start,capture);editor.removeEventListener('compositionend',end,capture);for(const type of edits)editor.removeEventListener(type,notify,capture);}};
     }
+    function loadReplyOptions({call,success,failure,set=setTimeout,clear=clearTimeout}){
+     let active=true,timer,attempt=0;
+     const run=async()=>{try{const value=await call('reply-options',{});if(active)success(value);}catch(error){if(!active)return;failure(error);if(attempt<3)timer=set(run,[1000,3000,8000][attempt++]);}};
+     run();return()=>{active=false;clear(timer);};
+    }
     function installReplyDraft(ctx,React,call){
      const h=React.createElement,views=new Map();
      function channel(id){if(!views.has(id))views.set(id,{text:'',listeners:new Set()});return views.get(id);}
@@ -396,7 +401,7 @@ window.__ModuleLoader__.load({
      function ReplyDraft(props){
       React.useSyncExternalStore(fn=>ctx.locale.subscribe(fn),()=>ctx.locale.getSnapshot());const zh=ctx.locale.getSnapshot().active.startsWith('zh'),t=(cn,en)=>zh?cn:en;
       const anchor=React.useRef(null),watch=React.useRef(null),live=React.useRef({}),epoch=React.useRef(0),mounted=React.useRef(false),flight=React.useRef(false),candidate=React.useRef(null),attempted=React.useRef(new Set());
-      const[settingsOpen,setSettingsOpen]=React.useState(false),[busy,setBusy]=React.useState(false),[options,setOptions]=React.useState(null),[form,setForm]=React.useState(null),[saving,setSaving]=React.useState(false),[message,setMessage]=React.useState(''),[tick,rerender]=React.useState(0);
+      const[optionsError,setOptionsError]=React.useState(''),[settingsOpen,setSettingsOpen]=React.useState(false),[busy,setBusy]=React.useState(false),[options,setOptions]=React.useState(null),[form,setForm]=React.useState(null),[saving,setSaving]=React.useState(false),[message,setMessage]=React.useState(''),[tick,rerender]=React.useState(0);
       const selectInput=React.useCallback(input=>{live.current.input=input;return input;},[]),selectSession=React.useCallback(session=>{live.current.session=session;return session;},[]);
       const input=props.useInput(selectInput),session=props.useSession(selectSession),sourceMessageId=props.useProjection('atelierReplySource',s=>s?.messageId??null);
       live.current={...live.current,input,session,sourceMessageId,sessionId:props.sessionId,actions:props.inputActions};
@@ -411,7 +416,7 @@ window.__ModuleLoader__.load({
        const visibility=()=>{drop();epoch.current++;rerender(n=>n+1);};document.addEventListener('visibilitychange',visibility);rerender(n=>n+1);
        return()=>{mounted.current=false;epoch.current++;drop();watch.current?.dispose();watch.current=null;editor?.removeEventListener('keydown',keys,true);document.removeEventListener('visibilitychange',visibility);};
       },[props.sessionId,props.inputActions]);
-      React.useEffect(()=>{let active=true;call('reply-options',{}).then(value=>{if(active){setOptions(value);setForm({auto:value.auto,delaySeconds:value.delaySeconds});}}).catch(error=>active&&setMessage(String(error.message??error)));return()=>{active=false;};},[props.sessionId]);
+      React.useEffect(()=>loadReplyOptions({call,success:value=>{setOptions(value);setForm({auto:value.auto,delaySeconds:value.delaySeconds});setOptionsError('');},failure:error=>setOptionsError(t('草稿设置读取失败：','Draft settings unavailable: ')+String(error.message??error))}),[props.sessionId,settingsOpen]);
       React.useEffect(()=>{if(candidate.current&&!replyDraftCanApply(candidate.current.before,read()))drop();},[input,session,sourceMessageId,tick]);
       async function generate(automatic=false){
        if(flight.current||!replyDraftReady(read())||document.visibilityState!=='visible')return;
@@ -421,14 +426,14 @@ window.__ModuleLoader__.load({
        finally{if(mounted.current){flight.current=false;setBusy(false);}}
       }
       const state=read(),ready=replyDraftReady(state)&&document.visibilityState==='visible';
-      React.useEffect(()=>scheduleReplyDraft({ready:ready&&!busy&&!settingsOpen&&!candidate.current,auto:options?.auto===true,delaySeconds:options?.delaySeconds,sourceMessageId,attempted:attempted.current,run:()=>generate(true)}),[ready,busy,settingsOpen,sourceMessageId,input,session,tick,options]);
+      React.useEffect(()=>scheduleReplyDraft({ready:ready&&!busy&&!settingsOpen&&!candidate.current,auto:!optionsError&&options?.auto===true,delaySeconds:options?.delaySeconds,sourceMessageId,attempted:attempted.current,run:()=>generate(true)}),[ready,busy,settingsOpen,sourceMessageId,input,session,tick,options,optionsError]);
       async function save(event){event.preventDefault();if(!form||!Number.isInteger(form.delaySeconds)||form.delaySeconds<0||form.delaySeconds>60)return;setSaving(true);try{const value=await call('reply-options',{revision:options.revision,replyOptions:form});setOptions(value);setForm({auto:value.auto,delaySeconds:value.delaySeconds});drop();setMessage(t('已保存','Saved'));}catch(error){setMessage(String(error.message??error));}finally{setSaving(false);}}
       const help=t('自动生成使用上一条助手模型的low档位，可能收费；候选按Tab采纳，正常输入即丢弃，不自动发送。','Automatic drafts use the previous assistant model at low reasoning and may incur charges. Tab accepts; typing discards. Never sends.');
       return h('span',{ref:anchor,className:'atelier-reply-draft'},
        h('style',null,'.atelier-reply-draft{display:inline-flex;align-items:center;gap:4px;font:inherit;color:var(--dsw-alias-label-secondary)}.atelier-reply-draft button,.atelier-reply-draft summary{font:inherit;color:inherit;background:transparent;border:0;border-radius:6px;padding:5px 7px;cursor:pointer}.atelier-reply-draft button:disabled{opacity:.45}.atelier-reply-draft details{position:relative}.atelier-reply-draft details>form{position:absolute;bottom:100%;right:0;width:280px;padding:12px;z-index:25;border:1px solid var(--dsw-alias-border-l2);border-radius:8px;background:var(--dsw-specific-input-major);display:grid;gap:10px}.atelier-reply-draft label{display:flex;align-items:center;gap:8px}.atelier-reply-draft input[type=number]{width:70px}.atelier-reply-candidate{position:absolute;top:12px;left:16px;right:16px;pointer-events:none;color:var(--dsw-alias-label-tertiary);font:inherit;line-height:24px;white-space:pre-wrap;overflow:hidden;max-height:96px;z-index:2}.atelier-reply-candidate small{display:inline-block;margin-left:8px;border:1px solid var(--dsw-alias-border-l2);border-radius:4px;padding:0 4px;font-size:11px}.atelier-reply-error{max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px}'),
        h('button',{type:'button',disabled:busy||!ready,onClick:()=>generate(false),title:help,'data-atelier-reply-draft-button':''},busy?t('生成中…','Drafting…'):t('回复草稿','Reply draft')),
        h('details',{onToggle:event=>setSettingsOpen(event.currentTarget.open)},h('summary',{'aria-label':t('回复草稿设置','Reply draft settings')},'⚙'),settingsOpen&&form&&h('form',{onSubmit:save},h('label',null,h('input',{type:'checkbox',checked:form.auto,disabled:saving,onChange:event=>setForm({...form,auto:event.target.checked})}),t('自动生成（可能收费）','Auto generate (may incur charges)')),h('label',null,t('空闲等待（秒）','Idle delay (seconds)'),h('input',{type:'number',min:0,max:60,step:1,value:form.delaySeconds,disabled:saving,onChange:event=>setForm({...form,delaySeconds:event.target.value===''?'':Number(event.target.value)})})),h('small',null,t('0–60秒，默认5秒；每条回复自动尝试一次。Tab采纳，不自动发送。','0–60s; default 5s. One automatic attempt per reply. Tab accepts; never sends.')),h('button',{type:'submit',disabled:saving||!Number.isInteger(form.delaySeconds)||form.delaySeconds<0||form.delaySeconds>60},t('保存','Save')))),
-       h('span',{role:'status',className:'atelier-reply-error',title:message},message));
+       h('span',{role:'status',className:'atelier-reply-error',title:optionsError||message},optionsError||message));
      }
      const cleanups=[ctx.slots.inject('conversation.input.right',()=>ctx.slots.register({name:'conversation.input.right',id:'atelier-reply-draft',order:40},ReplyDraft)),ctx.slots.inject('conversation.input.overlay',()=>ctx.slots.register({name:'conversation.input.overlay',id:'atelier-reply-candidate',order:40},Candidate))];return()=>{for(const dispose of cleanups)dispose();views.clear();};
     }
