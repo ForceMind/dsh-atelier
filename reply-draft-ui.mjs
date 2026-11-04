@@ -27,7 +27,7 @@ export async function generateReplyDraft({ read, call }) {
   const span = before.actions.captureInsertion();
   if (span.start !== 0 || span.end !== 0 || span.draftRev !== before.input.draftRev) return { kind: 'blocked' };
   const result = await call('reply-draft', { sessionId: before.sessionId });
-  if (!result || typeof result.text !== 'string' || !result.text.trim() || result.reasoningEffort !== 'off') {
+  if (!result || typeof result.text !== 'string' || !result.text.trim() || result.reasoningEffort !== 'low') {
     throw new Error('Invalid reply draft response');
   }
   // No await between the extra attachment/composition/session checks and CAS.
@@ -101,7 +101,7 @@ export function installReplyDraft(ctx, React, call) {
       } catch (error) { if (mounted.current && seq === request.current) setMessage(t('生成失败：', 'Generation failed: ') + (error?.message ?? String(error))); }
       finally { if (mounted.current && seq === request.current) { inFlight.current = false; setBusy(false); } }
     }
-    const help = t('生成你对助手最后一条消息的简短回复。会发起一次付费模型请求，使用该消息的模型；仅本次请求关闭思考，不改会话设置。只填草稿，不自动发送；已有输入或附件时不可用。', 'Draft your concise reply to the assistant’s last message. Makes one billable request using that message’s model, with thinking off for this request only. Does not change session settings, send, or overwrite input/attachments.');
+    const help = t('生成你对助手最后一条消息的简短回复。会发起一次付费模型请求，使用该消息的模型；仅本次请求使用 low 低强度思考（不是关闭），不改会话设置。只填草稿，不自动发送；已有输入或附件时不可用。', 'Draft your concise reply to the assistant’s last message. Makes one billable request using that message’s model, with low reasoning for this request only (not thinking off). Does not change session settings, send, or overwrite input/attachments.');
     return h('span', { ref: anchor, className: 'atelier-reply-draft', 'data-atelier-reply-draft': '' },
       h('style', null, `.atelier-reply-draft{position:relative;display:inline-flex;align-items:center;font:inherit;color:var(--dsw-alias-label-secondary)}.atelier-reply-draft button{font:inherit;color:inherit;background:transparent;border:0;border-radius:6px;padding:5px 7px;cursor:pointer}.atelier-reply-draft button:hover{background:var(--dsw-alias-bg-layer-1)}.atelier-reply-draft button:disabled{opacity:.45;cursor:default}.atelier-reply-draft button:focus-visible,.atelier-reply-draft textarea:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:2px}.atelier-reply-draft-panel{position:absolute;bottom:100%;right:0;z-index:20;width:min(340px,75vw);max-height:50vh;overflow:auto;padding:12px;border:1px solid var(--dsw-alias-border-l1);border-radius:8px;background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary);font-size:12px}.atelier-reply-draft-panel p{margin:0 0 8px}.atelier-reply-draft textarea{box-sizing:border-box;width:100%;min-height:100px;resize:vertical;font:inherit;color:inherit;background:var(--dsw-alias-bg-base);border:1px solid var(--dsw-alias-border-l1);border-radius:4px}.atelier-reply-draft-status{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}`),
       h('button', { type: 'button', disabled, onClick: generate, title: help, 'aria-label': help, 'aria-busy': busy, 'data-atelier-reply-draft-button': '' }, busy ? t('生成中…', 'Drafting…') : t('回复草稿', 'Reply draft')),

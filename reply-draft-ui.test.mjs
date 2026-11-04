@@ -14,7 +14,7 @@ function fixture() {
   let resolve;
   const call = (...args) => { calls.push(args); return new Promise(r => { resolve = r; }); };
   return { state, inserts, calls, start: () => generateReplyDraft({ read: () => ({ ...state }), call }),
-    finish: () => resolve({ text: 'Thanks, please continue.', sourceMessageId: 'a1', provider: 'p', model: 'm', reasoningEffort: 'off' }) };
+    finish: () => resolve({ text: 'Thanks, please continue.', sourceMessageId: 'a1', provider: 'p', model: 'm', reasoningEffort: 'low' }) };
 }
 
 test('one explicit paid RPC inserts by captured CAS only, never sends or changes settings', async () => {

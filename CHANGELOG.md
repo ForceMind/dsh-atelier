@@ -4,6 +4,8 @@ All notable public-release changes are documented here. Versions follow Semantic
 
 ## [Unreleased]
 
+- Per user request, reply drafts now explicitly use low reasoning (not off), accept but exclude reasoning chunks, and allow up to1024 output tokens subject to model limits. Session choice and send behavior stay unchanged. 119 checks pass; no automatic paid verification.
+
 - Explicit composer reply-draft button: one bounded request to the previous assistant model with thinking off, no tools/session-selection changes and no auto-send. Empty-input/attachment/IME/async-revision guards preserve user edits; conflicts expose a manual-copy draft. Local no-network acceptance confirms off/256-token/no-tool call and unchanged High session selection. Independent draft cost is not included in conversation totals; see docs/reply-draft.md. 118 checks pass; real async IME/attachment matrix remains partial.
 
 - Show current/latest turn time and cumulative session running time together in the footer, including the active turn but excluding idle gaps. Clock details expose both values. Guard duplicate end events from double-counting; projection stateVersion 7 replays the corrected fold. User accepted the local display; 108 checks pass.

@@ -327,7 +327,7 @@ export async function apply(ctx, config) {
     },
   });
   ctx.tools.register({
-    name:'atelier', description:'查看工作台用量、cache与本会话日志，管理设置和模型容量。reply-draft 用最近助手消息的模型发起一次显式关闭思考的短请求（可能收费），仅返回用户回复草稿，不发送消息或修改当前选择。日志按需分页。',
+    name:'atelier', description:'查看工作台用量、cache与本会话日志，管理设置和模型容量。reply-draft 用最近助手消息的模型发起一次 low 低强度思考的短请求（可能收费），仅返回用户回复草稿，不发送消息或修改当前选择。日志按需分页。',
     parameters:{type:'object',properties:{action:{type:'string',enum:['status','settings','save','logs','get','diagnose','display','cache','reply-draft','models','model-preview','model-apply']},provider:{type:'string',description:'models/model-preview 的精确渠道 ID。'},changes:{type:'object',properties:{contextWindow:{type:'integer',minimum:1,maximum:10000000},maxTokens:{type:'integer',minimum:1,maximum:10000000}},additionalProperties:false,description:'model-preview 要覆盖的容量字段，未传字段保持不变。'},previewId:{type:'string',description:'model-apply 使用最近预览返回的 ID，5分钟有效。'},sessionId:{type:'string'},id:{type:'string'},view:{type:'string',enum:['json','text','chunks','response']},offset:{type:'integer'},limit:{type:'integer'},revision:{type:'integer'},settings:{type:'object',description:'save 时传完整设置；先用 settings 读取版本。'}},required:['action']},
     output:{schema:{},render:(_args,value)=>[{type:'text',text:JSON.stringify(value)}]},
     async execute(args,exec) {return service.operate(args,exec.agent?.id);},
