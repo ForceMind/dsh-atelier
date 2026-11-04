@@ -4,6 +4,8 @@ All notable public-release changes are documented here. Versions follow Semantic
 
 ## [Unreleased]
 
+- Suggestions now use an independently selected model, defaulting to available Luna (preferring exact gpt-6-luna); read-only catalog and validated revision-checked saves never change conversation selection. Replaced the separate draft/gear/arrow controls with one left-side Suggestions button and consolidated settings. Candidate presence conditionally hides native placeholder and reserves Tab space.142 checks pass; local UI confirms hidden placeholder, empty actual input and typing discards the candidate. Daily route readback resolves myapi/gpt-6-luna; no paid Luna probe.
+
 - Recover reply-options reads after transient Host/Client update skew with bounded read-only retries and a fresh read when settings opens; successful reads clear their own stale error. No model-generation retries are added. Current live Host options read succeeds; original reported failing action is not captured.135 checks pass.
 
 - Reply candidates now auto-generate after5 idle seconds by default, with a persisted auto switch and0–60s delay. Results stay ghost candidates until unmodified Tab; ordinary input invalidates them. No result popup or auto-send. Host deduplicates automatic attempts per session/source (including failures, latest500 in memory).133 checks pass; local no-network UI confirms candidate-before-input, Tab acceptance and settings save; full real IME/attachment matrix remains partial.

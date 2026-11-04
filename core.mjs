@@ -29,7 +29,7 @@ export const DEFAULT_SETTINGS = Object.freeze({
   identityEnabled: false, identityText: 'You are a helpful AI coding assistant.', extraPrompt: '',
   hideClientIdentity: false, chatDynamicLabels: false,
   onboardingCompleted:false,sidebarRecentMarks:true,sidebarRecentSnap:true,
-  replyDraftAuto:true,replyDraftDelaySeconds:5,
+  replyDraftAuto:true,replyDraftDelaySeconds:5,replyDraftProvider:'',replyDraftModel:'',
   captureEnabled: false, retentionDays: 14, maxLogMB: 256, rotationSeconds: 4,
   priceCurrency:'USD',pricePeriod:'peak',
   phrases: Object.freeze(PHRASES), prices: Object.freeze([]), promptLibrary: Object.freeze([]),
@@ -87,6 +87,10 @@ export function validateSettings(input = {}) {
   const result = { ...DEFAULT_SETTINGS, ...input };
   for (const key of ['identityEnabled', 'captureEnabled', 'hideClientIdentity', 'chatDynamicLabels','onboardingCompleted','sidebarRecentMarks','sidebarRecentSnap','replyDraftAuto']) if (typeof result[key] !== 'boolean') throw new TypeError(`${key} must be boolean`);
   result.replyDraftDelaySeconds = number(result.replyDraftDelaySeconds, 'replyDraftDelaySeconds', 0, 60, true);
+  result.replyDraftProvider = text(result.replyDraftProvider, 'replyDraftProvider', 200);
+  result.replyDraftModel = text(result.replyDraftModel, 'replyDraftModel', 300);
+  if(result.replyDraftProvider.trim()!==result.replyDraftProvider||result.replyDraftModel.trim()!==result.replyDraftModel)throw new TypeError('replyDraftProvider/replyDraftModel must not have surrounding whitespace');
+  if(Boolean(result.replyDraftProvider)!==Boolean(result.replyDraftModel))throw new TypeError('replyDraftProvider and replyDraftModel must both be empty or both be nonblank');
   if(!['USD','CNY'].includes(result.priceCurrency))throw new TypeError('priceCurrency must be USD or CNY');
   if(!['peak','offpeak'].includes(result.pricePeriod))throw new TypeError('pricePeriod must be peak or offpeak');
   result.identityText = text(result.identityText, 'identityText', 50_000);

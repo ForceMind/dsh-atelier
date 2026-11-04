@@ -33,6 +33,19 @@ test('automatic reply draft settings default on and require bounded integer seco
   for(const replyDraftDelaySeconds of [-1,61,1.5,NaN,Infinity,'5',null])assert.throws(()=>validateSettings({replyDraftDelaySeconds}),/replyDraftDelaySeconds/);
 });
 
+test('dedicated draft route defaults automatic and validates exact paired identifiers',()=>{
+  assert.equal(DEFAULT_SETTINGS.replyDraftProvider,'');assert.equal(DEFAULT_SETTINGS.replyDraftModel,'');
+  const route={replyDraftProvider:'route',replyDraftModel:'gpt-6-luna'};assert.equal(validateSettings(route).replyDraftModel,'gpt-6-luna');
+  assert.equal(validateSettings({replyDraftProvider:'p'.repeat(200),replyDraftModel:'m'.repeat(300)}).replyDraftProvider.length,200);
+  for(const patch of [
+    {replyDraftProvider:'p'},{replyDraftModel:'m'},
+    {replyDraftProvider:' p',replyDraftModel:'m'},{replyDraftProvider:'p',replyDraftModel:'m '},
+    {replyDraftProvider:' ',replyDraftModel:' '},{replyDraftProvider:null},{replyDraftModel:1},
+    {replyDraftProvider:'p'.repeat(201),replyDraftModel:'m'},{replyDraftProvider:'p',replyDraftModel:'m'.repeat(301)},
+    {replyDraftProvider:'p\0',replyDraftModel:'m'},
+  ])assert.throws(()=>validateSettings(patch),/replyDraft/);
+});
+
 test('documented presets validate, preserve custom overrides and never price pending vendors',()=>{
   const checked=validateSettings({prices:mergeCatalogPrices([])});assert.equal(checked.prices.length,5);
   for(const entry of checked.prices){const price=priceUsage({inputTokens:1000,outputTokens:100},'channel',entry.model,checked.prices);assert.equal(price.known,true);assert.ok(price.source.includes('/blob/'));}

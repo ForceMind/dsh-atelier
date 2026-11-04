@@ -67,6 +67,7 @@ function harness({optIn=false}={}) {
     return [id, agent];
   }));
   ctx.agents = {list:()=>[...agents.values()],get:id=>agents.get(id)};
+  ctx.llm={listProviders:()=>[{id:'draft',name:'Draft provider'}],listModels:async provider=>[{provider,id:'gpt-6-luna',name:'GPT 6 Luna'}]};
   ctx.sessionProjections = {register(value){projections.set(value.key,value);},stateOf(session,key){return states.get(session.id)?.get(key)??projections.get(key)?.init();}};
   ctx.tools = {register(tool){tools.set(tool.name,tool);}};
   ctx.commands = {register(command){commands.set(command.name,command);}};
@@ -100,10 +101,13 @@ test('concurrent revision CAS accepts exactly one save',async t=>{
 });
 test('reply options defaults display and exact tool schema are exposed',async t=>{
   const h=await setup(t);
-  assert.deepEqual(await h.operate({action:'reply-options'}),{auto:true,delaySeconds:5,revision:0});
+  assert.deepEqual(await h.operate({action:'reply-options'}),{auto:true,delaySeconds:5,revision:0,provider:'',model:'',resolved:{provider:'draft',model:'gpt-6-luna'}});
   const display=await h.operate({action:'display'});assert.equal(display.replyDraftAuto,true);assert.equal(display.replyDraftDelaySeconds,5);
   const tool=h.tools.get('atelier'),properties=tool.parameters.properties;
-  assert.ok(properties.action.enum.includes('reply-options'));
+  assert.ok(properties.action.enum.includes('reply-options'));assert.ok(properties.action.enum.includes('reply-models'));
+  assert.equal(tool.isConcurrencySafe({action:'reply-models'}),true);
+  assert.equal(properties.replyOptions.properties.provider.maxLength,200);assert.equal(properties.replyOptions.properties.model.maxLength,300);
+  assert.deepEqual(properties.replyOptions.dependentRequired,{provider:['model'],model:['provider']});
   assert.deepEqual(properties.replyOptions.required,['auto','delaySeconds']);
   assert.equal(properties.replyOptions.additionalProperties,false);
   assert.deepEqual(properties.replyOptions.properties.delaySeconds,{type:'integer',minimum:0,maximum:60});
@@ -115,7 +119,7 @@ test('reply option updates use full save validation and CAS without resetting cu
   const h=await setup(t);await save(h,{extraPrompt:'preserve prompt',rotationSeconds:9,phrases:['preserve phrases']});
   const before=await h.operate({action:'settings'});
   const changed=await h.operate({action:'reply-options',revision:before.revision,replyOptions:{auto:false,delaySeconds:0}});
-  assert.deepEqual(changed,{auto:false,delaySeconds:0,revision:before.revision+1});
+  assert.deepEqual(changed,{auto:false,delaySeconds:0,revision:before.revision+1,provider:'',model:'',resolved:{provider:'draft',model:'gpt-6-luna'}});
   const after=await h.operate({action:'settings'});
   assert.deepEqual(after.settings,{...before.settings,replyDraftAuto:false,replyDraftDelaySeconds:0});
   await assert.rejects(h.operate({action:'reply-options',revision:before.revision,replyOptions:{auto:true,delaySeconds:60}}),/其他窗口/);
@@ -147,12 +151,59 @@ test('Host reply source projection is separate from unchanged stats version and 
 test('Host forwards automatic source guards and retains failed attempts across options reads',async t=>{
   const h=await setup(t),agent=h.agents.get('alpha');let calls=0;
   agent.status='idle';agent.session.deriveMessages=()=>[{id:'m1',role:'assistant',source:{provider:'p',model:'m'},content:[{type:'text',text:'reply'}]}];
-  h.ctx.llm={prepareCall:async()=>{calls++;throw Error('mock failure');}};
+  h.ctx.llm={...h.ctx.llm,prepareCall:async()=>{calls++;throw Error('mock failure');}};
   await assert.rejects(h.operate({action:'reply-draft',sessionId:'alpha',automatic:true,sourceMessageId:'stale'}),/变化/);assert.equal(calls,0);
   await assert.rejects(h.operate({action:'reply-draft',sessionId:'alpha',automatic:true,sourceMessageId:'m1'}),/mock failure/);assert.equal(calls,1);
   await h.operate({action:'display'});await h.operate({action:'reply-options'});
   await assert.rejects(h.operate({action:'reply-draft',sessionId:'alpha',automatic:true,sourceMessageId:'m1'}),/already-attempted/);assert.equal(calls,1);
   await assert.rejects(h.operate({action:'reply-draft',sessionId:'alpha',sourceMessageId:'m1'}),/mock failure/);assert.equal(calls,2);
+});
+
+test('reply model catalog is stable, registered-only and prefers exact Luna without generation',async t=>{
+  const h=await setup(t);let paid=0;
+  h.ctx.llm={listProviders:()=>[{id:'z'},{id:'a'}],listModels:async provider=>[
+    {provider:'unregistered',id:'other',name:'Other'},
+    {provider,id:'luna-preview',name:'Luna Preview'},
+    {provider,id:'GPT-6-LUNA',name:'Preferred'},
+    {provider,id:'GPT-6-LUNA',name:'duplicate'},
+  ],prepareCall:()=>{paid++;throw Error('paid');}};
+  const models=await h.operate({action:'reply-models'});
+  assert.equal(models.items.length,6);assert.deepEqual(models.recommended,{provider:'a',model:'GPT-6-LUNA'});
+  assert.deepEqual(models.items.map(row=>row.provider),['a','a','a','z','z','z']);
+  assert.equal(models.items.some(row=>row.provider==='unregistered'),false);assert.equal(paid,0);
+  assert.deepEqual((await h.operate({action:'reply-options'})).resolved,models.recommended);
+});
+test('explicit draft pair saves validate catalog and legacy saves preserve selection',async t=>{
+  const h=await setup(t);h.ctx.llm.listModels=async provider=>[{provider,id:'other',name:'Other'},{provider,id:'gpt-6-luna',name:'Luna'}];
+  const before=await h.operate({action:'settings'}),section=h.agents.get('alpha').prompt.sections.get('harness:identity');
+  const selected=await h.operate({action:'reply-options',revision:before.revision,replyOptions:{auto:true,delaySeconds:5,provider:'draft',model:'other'}});
+  assert.deepEqual(selected.resolved,{provider:'draft',model:'other'});
+  const preserved=await h.operate({action:'reply-options',revision:selected.revision,replyOptions:{auto:false,delaySeconds:1}});
+  assert.equal(preserved.model,'other');assert.equal(preserved.provider,'draft');
+  assert.equal(h.agents.get('alpha').prompt.sections.get('harness:identity'),section);
+  for(const pair of [{provider:'draft'},{model:'other'},{provider:'missing',model:'other'},{provider:'draft',model:'missing'},{provider:'',model:'other'},{provider:' draft',model:'other'}]){
+    await assert.rejects(h.operate({action:'reply-options',revision:preserved.revision,replyOptions:{auto:true,delaySeconds:5,...pair}}));
+  }
+  assert.equal((await h.operate({action:'reply-options'})).revision,preserved.revision);
+  const reset=await h.operate({action:'reply-options',revision:preserved.revision,replyOptions:{auto:true,delaySeconds:5,provider:'',model:''}});
+  assert.deepEqual(reset.resolved,{provider:'draft',model:'gpt-6-luna'});
+});
+test('Host drafts use current dedicated route and never change normal conversation source',async t=>{
+  const h=await setup(t),agent=h.agents.get('alpha'),source={id:'m1',role:'assistant',source:{provider:'normal',model:'conversation'},content:[{type:'text',text:'reply'}]};
+  agent.status='idle';agent.session.deriveMessages=()=>[source];const calls=[];
+  h.ctx.llm.prepareCall=async(config,_signal,configure)=>({config:configure(config,{reasoning:{efforts:[{id:'low'}]}}),stream:async function*(options){calls.push(options);yield {type:'text-delta',text:'draft'};yield finish();}});
+  const first=await h.operate({action:'reply-draft',sessionId:'alpha',sourceMessageId:'m1'});
+  assert.equal(first.provider,'draft');assert.equal(first.model,'gpt-6-luna');assert.equal(first.sourceMessageId,'m1');assert.equal(calls[0].reasoningEffort,'low');
+  h.ctx.llm.listModels=async provider=>[{provider,id:'chosen',name:'Chosen'}];
+  await save(h,{replyDraftProvider:'draft',replyDraftModel:'chosen'});
+  assert.equal((await h.operate({action:'reply-draft',sessionId:'alpha'})).model,'chosen');
+  assert.deepEqual(source.source,{provider:'normal',model:'conversation'});assert.equal(agent.status,'idle');
+  h.ctx.llm.listModels=async()=>[];
+  assert.equal((await h.operate({action:'reply-options'})).resolved,null);
+  await assert.rejects(h.operate({action:'reply-draft',sessionId:'alpha'}),/草稿模型不可用/);
+  await save(h,{replyDraftProvider:'',replyDraftModel:''});
+  assert.equal((await h.operate({action:'reply-models'})).recommended,null);
+  await assert.rejects(h.operate({action:'reply-draft',sessionId:'alpha'}),/Luna/);assert.equal(calls.length,2);
 });
 
 test('session-bound logs/get reject forged other-session selector',async t=>{

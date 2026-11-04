@@ -63,4 +63,16 @@ test('reply source reducer publishes only final text IDs and clears on new work'
  assert.equal(foldReplySource(initial,{type:'turn/start'}),initial);
 });
 
+test('injected draft resolver uses independent route and preserves source identity',async()=>{
+ const f=fixture(),llm={prepareCall:async(c,_signal,configure)=>({config:configure(c,{reasoning:{efforts:[{id:'low'}]}}),stream:async function*(options){assert.equal(options.provider,'dedicated');assert.equal(options.model,'luna');yield{type:'text-delta',text:'draft'};yield{type:'finish',reason:{kind:'stop'}};}})};
+ let source;const service=createReplyDraftService({getAgent:()=>f.agent,getLlm:()=>llm,resolveDraftRoute:async value=>{source=value;return{provider:'dedicated',model:'luna'};}});
+ const result=await service.generate('s',{sourceMessageId:'m1'});assert.equal(source.id,'m1');assert.equal(source.provider,'p');assert.equal(result.provider,'dedicated');assert.equal(result.model,'luna');assert.equal(result.sourceMessageId,'m1');assert.deepEqual(message.source,{provider:'p',model:'m'});
+});
+test('resolver failures and source changes during route resolution dispatch no request',async()=>{
+ const f=fixture();let calls=0;
+ for(const resolveDraftRoute of [async()=>null,async()=>{throw Error('no Luna');},async()=>{f.agent.session.deriveMessages=()=>[{...message,id:'m2'}];return{provider:'draft',model:'luna'};}]){
+  f.agent.session.deriveMessages=()=>[message];const service=createReplyDraftService({getAgent:()=>f.agent,getLlm:()=>({prepareCall:()=>{calls++;}}),resolveDraftRoute});await assert.rejects(service.generate('s',{sourceMessageId:'m1'}));
+ }assert.equal(calls,0);
+});
+
 test('low reasoning chunks are omitted, not mistaken for draft or an off failure',async()=>{const f=fixture({chunks:[{type:'reasoning-delta',text:'PRIVATE_THOUGHT'},{type:'block-end',block:{type:'reasoning',text:'PRIVATE_THOUGHT'}},{type:'text-delta',text:'请先说明方案。'},{type:'finish',reason:{kind:'stop'}}]});const result=await f.service.generate('s');assert.equal(result.text,'请先说明方案。');assert.equal(result.reasoningEffort,'low');assert.ok(!JSON.stringify(result).includes('PRIVATE_THOUGHT'));});

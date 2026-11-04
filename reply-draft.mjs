@@ -17,7 +17,8 @@ export function replySource(messages){
  if(text.length>16000)throw Error('最近回复过长，暂不生成草稿');
  return {id:last.id,text,provider:last.source.provider,model:last.source.model};
 }
-export function createReplyDraftService({getAgent,getLlm,timeoutMs=30000}){
+const sourceRoute=source=>source;
+export function createReplyDraftService({getAgent,getLlm,resolveDraftRoute=sourceRoute,timeoutMs=30000}){
  const pending=new Map(),automaticAttempts=new Map();
  async function generate(sessionId,input={}){
   if(typeof sessionId!=='string'||!sessionId)throw Error('缺少会话ID');
@@ -38,7 +39,11 @@ export function createReplyDraftService({getAgent,getLlm,timeoutMs=30000}){
   const timer=setTimeout(()=>controller.abort(),timeoutMs);
   try{
    const llm=getLlm();if(!llm)throw Error('模型服务不可用');
-   const prepared=await llm.prepareCall({provider:source.provider,model:source.model,reasoningEffort:'low',maxTokens:1024},controller.signal,(controls,model)=>{
+   const route=resolveDraftRoute===sourceRoute?source:await resolveDraftRoute(source);
+   if(!route||typeof route.provider!=='string'||!route.provider.trim()||typeof route.model!=='string'||!route.model.trim())throw Error('没有可用的草稿模型，请配置 Luna 或选择其他草稿模型');
+   assertCurrent();
+   if(controller.signal.aborted)throw Error('草稿生成已取消或超时');
+   const prepared=await llm.prepareCall({provider:route.provider,model:route.model,reasoningEffort:'low',maxTokens:1024},controller.signal,(controls,model)=>{
     if(!model.reasoning?.efforts?.some(row=>row.id==='low'))throw Error('此模型未声明支持 low 思考档位，无法生成 low 草稿');
     return {...controls,reasoningEffort:'low',maxTokens:Math.min(1024,model.defaultMaxTokens??1024)};
    });
@@ -56,7 +61,7 @@ export function createReplyDraftService({getAgent,getLlm,timeoutMs=30000}){
    }
    if(!stopped||!text.trim())throw Error('模型未返回完整回复草稿');
    assertCurrent();
-   return {text:text.trim(),sourceMessageId:source.id,provider:source.provider,model:source.model,reasoningEffort:'low',sent:false};
+   return {text:text.trim(),sourceMessageId:source.id,provider:route.provider,model:route.model,reasoningEffort:'low',sent:false};
   }finally{controller.abort();clearTimeout(timer);pending.delete(sessionId);}
  }
  return {generate,dispose(){for(const controller of pending.values())controller.abort();pending.clear();}};

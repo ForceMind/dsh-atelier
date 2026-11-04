@@ -221,28 +221,64 @@ export async function apply(ctx, config) {
       price: priceUsage(record.usage ?? {inputTokens:record.inputEstimate,outputTokens:record.outputEstimate,inputIncludesCache:false},record.provider,record.model,activePriceRules(settings))};
   }
   const modelManager=createModelManager(ctx,{makeId:randomUUID});
-  const replyDraft=createReplyDraftService({getAgent:id=>ctx.agents.get(id),getLlm:()=>ctx.get('llm')});ctx.effect(()=>()=>replyDraft.dispose());
+  async function replyModels(){
+    const llm=ctx.get('llm');if(!llm)return {items:[],recommended:null};
+    const providers=llm.listProviders(),items=[],seen=new Set();
+    for(const provider of providers.map(row=>row.id).sort()){
+      for(const row of await llm.listModels(provider)){
+        if(typeof row.id!=='string'||!row.id.trim()||row.id.trim()!==row.id||row.id.length>300||provider.length>200)continue;
+        const key=JSON.stringify([provider,row.id]);if(seen.has(key))continue;seen.add(key);
+        items.push({provider,model:row.id,name:row.name||row.id});
+      }
+    }
+    const compare=(a,b)=>a<b?-1:a>b?1:0;
+    items.sort((a,b)=>compare(a.provider,b.provider)||compare(a.model,b.model));
+    const luna=items.filter(row=>/luna/i.test(row.model)||/luna/i.test(row.name));
+    luna.sort((a,b)=>Number(b.model.toLowerCase()==='gpt-6-luna')-Number(a.model.toLowerCase()==='gpt-6-luna'));
+    const recommended=luna[0]?{provider:luna[0].provider,model:luna[0].model}:null;
+    return {items,recommended};
+  }
+  async function replyOptions(value=settings,currentRevision=revision){
+    const {items,recommended}=await replyModels();
+    const provider=value.replyDraftProvider,model=value.replyDraftModel;
+    const resolved=provider?(items.some(row=>row.provider===provider&&row.model===model)?{provider,model}:null):recommended;
+    return {auto:value.replyDraftAuto,delaySeconds:value.replyDraftDelaySeconds,revision:currentRevision,provider,model,resolved};
+  }
+  async function resolveDraftRoute(){
+    const {resolved}=await replyOptions();
+    if(!resolved)throw Error(settings.replyDraftProvider?'配置的草稿模型不可用，请重新选择草稿模型':'没有可用的 Luna 草稿模型，请配置 Luna 或选择其他草稿模型');
+    return resolved;
+  }
+  const replyDraft=createReplyDraftService({getAgent:id=>ctx.agents.get(id),getLlm:()=>ctx.get('llm'),resolveDraftRoute});ctx.effect(()=>()=>replyDraft.dispose());
   const service = {
     async operate(input, callerSessionId) {
       if (!input || typeof input !== 'object') throw new Error('操作参数必须是对象');
       const action = input.action ?? 'status';
       const sessionId = callerSessionId ?? input.sessionId;
       if(action==='reply-draft')return replyDraft.generate(sessionId,input);
+      if(action==='reply-models')return replyModels();
       if(action==='reply-options'){
         if(Object.prototype.hasOwnProperty.call(input,'replyOptions')){
           const options=input.replyOptions;
           if(!options||typeof options!=='object'||Array.isArray(options)||![Object.prototype,null].includes(Object.getPrototypeOf(options)))throw new TypeError('replyOptions must be a plain object');
           for(const key of Reflect.ownKeys(options)){
-            if(!['auto','delaySeconds'].includes(key))throw new TypeError(`replyOptions: unknown field ${String(key)}`);
+            if(!['auto','delaySeconds','provider','model'].includes(key))throw new TypeError(`replyOptions: unknown field ${String(key)}`);
             const descriptor=Object.getOwnPropertyDescriptor(options,key);
             if(!descriptor?.enumerable||!('value' in descriptor))throw new TypeError(`replyOptions.${key} must be an enumerable data property`);
           }
           if(!Object.prototype.hasOwnProperty.call(options,'auto')||!Object.prototype.hasOwnProperty.call(options,'delaySeconds'))throw new TypeError('replyOptions.auto and replyOptions.delaySeconds are required');
+          const hasProvider=Object.prototype.hasOwnProperty.call(options,'provider'),hasModel=Object.prototype.hasOwnProperty.call(options,'model');
+          if(hasProvider!==hasModel)throw new TypeError('replyOptions.provider and replyOptions.model must be provided together');
           if(!Number.isSafeInteger(input.revision)||input.revision<0)throw new TypeError('reply-options updates require an integer revision');
-          const saved=await service.operate({action:'save',revision:input.revision,settings:{...settings,replyDraftAuto:options.auto,replyDraftDelaySeconds:options.delaySeconds}},callerSessionId);
-          return {auto:saved.settings.replyDraftAuto,delaySeconds:saved.settings.replyDraftDelaySeconds,revision:saved.revision};
+          const next=validateSettings({...settings,replyDraftAuto:options.auto,replyDraftDelaySeconds:options.delaySeconds,...(hasProvider?{replyDraftProvider:options.provider,replyDraftModel:options.model}:{})});
+          if(hasProvider&&next.replyDraftProvider){
+            const {items}=await replyModels();
+            if(!items.some(row=>row.provider===next.replyDraftProvider&&row.model===next.replyDraftModel))throw Error('草稿模型不可用，请从 reply-models 选择已注册渠道的模型');
+          }
+          const saved=await service.operate({action:'save',revision:input.revision,settings:next},callerSessionId);
+          return replyOptions(saved.settings,saved.revision);
         }
-        return {auto:settings.replyDraftAuto,delaySeconds:settings.replyDraftDelaySeconds,revision};
+        return replyOptions();
       }
       if(['models','model-preview','model-apply'].includes(action))return modelManager.operate(input);
       if (action === 'client-report') {
@@ -347,8 +383,8 @@ export async function apply(ctx, config) {
     },
   });
   ctx.tools.register({
-    name:'atelier', description:'查看工作台用量、cache与本会话日志，管理设置和模型容量。reply-options 读取或保存自动草稿开关与延迟。reply-draft 用最近助手消息的模型发起一次 low 低强度思考的短请求（可能收费），仅返回用户回复草稿，不发送消息或修改当前选择。日志按需分页。',
-    parameters:{type:'object',properties:{action:{type:'string',enum:['status','settings','save','logs','get','diagnose','display','cache','reply-options','reply-draft','models','model-preview','model-apply']},replyOptions:{type:'object',properties:{auto:{type:'boolean'},delaySeconds:{type:'integer',minimum:0,maximum:60}},required:['auto','delaySeconds'],additionalProperties:false,description:'reply-options：省略时读取 {auto,delaySeconds,revision}；传入时更新，须同时传读取的 revision。'},automatic:{type:'boolean',description:'reply-draft：true 为自动请求，同会话同来源消息最多尝试一次（失败也计入）；手动请求省略。'},sourceMessageId:{type:'string',minLength:1,description:'reply-draft：可选的最近助手消息 ID；变化时拒绝请求。'},provider:{type:'string',description:'models/model-preview 的精确渠道 ID。'},changes:{type:'object',properties:{contextWindow:{type:'integer',minimum:1,maximum:10000000},maxTokens:{type:'integer',minimum:1,maximum:10000000}},additionalProperties:false,description:'model-preview 要覆盖的容量字段，未传字段保持不变。'},previewId:{type:'string',description:'model-apply 使用最近预览返回的 ID，5分钟有效。'},sessionId:{type:'string'},id:{type:'string'},view:{type:'string',enum:['json','text','chunks','response']},offset:{type:'integer'},limit:{type:'integer'},revision:{type:'integer'},settings:{type:'object',description:'save 时传完整设置；先用 settings 读取版本。'}},required:['action']},
+    name:'atelier', description:'查看工作台用量、cache与本会话日志，管理设置和模型容量。reply-models 只读列出可选草稿模型及 Luna 推荐；reply-options 读取或保存自动草稿与独立模型设置。reply-draft 用草稿模型发起一次 low 短请求（可能收费），仅返回用户回复草稿，不发送消息或修改正常会话模型。日志按需分页。',
+    parameters:{type:'object',properties:{action:{type:'string',enum:['status','settings','save','logs','get','diagnose','display','cache','reply-models','reply-options','reply-draft','models','model-preview','model-apply']},replyOptions:{type:'object',properties:{auto:{type:'boolean'},delaySeconds:{type:'integer',minimum:0,maximum:60},provider:{type:'string',maxLength:200,description:'与 model 同时提供，必须是 reply-models 中的精确渠道 ID；均为空时自动推荐 Luna；省略整对保留当前选择。'},model:{type:'string',maxLength:300,description:'与 provider 同时提供，必须是 reply-models 中该渠道的精确模型 ID。'}},required:['auto','delaySeconds'],dependentRequired:{provider:['model'],model:['provider']},additionalProperties:false,description:'reply-options：省略时读取 {auto,delaySeconds,revision,provider,model,resolved}；更新须传读取的 revision。resolved 是可用的草稿路由或 null。'},automatic:{type:'boolean',description:'reply-draft：true 为自动请求，同会话同来源消息最多尝试一次（失败也计入）；手动请求省略。'},sourceMessageId:{type:'string',minLength:1,description:'reply-draft：可选的最近助手消息 ID；变化时拒绝请求。'},provider:{type:'string',description:'models/model-preview 的精确渠道 ID。'},changes:{type:'object',properties:{contextWindow:{type:'integer',minimum:1,maximum:10000000},maxTokens:{type:'integer',minimum:1,maximum:10000000}},additionalProperties:false,description:'model-preview 要覆盖的容量字段，未传字段保持不变。'},previewId:{type:'string',description:'model-apply 使用最近预览返回的 ID，5分钟有效。'},sessionId:{type:'string'},id:{type:'string'},view:{type:'string',enum:['json','text','chunks','response']},offset:{type:'integer'},limit:{type:'integer'},revision:{type:'integer'},settings:{type:'object',description:'save 时传完整设置；先用 settings 读取版本。'}},required:['action']},
     output:{schema:{},render:(_args,value)=>[{type:'text',text:JSON.stringify(value)}]},
     async execute(args,exec) {return service.operate(args,exec.agent?.id);},
     isConcurrencySafe: args=>!['save','model-apply','reply-draft'].includes(args.action)&&!(args.action==='reply-options'&&args.replyOptions!==undefined),
