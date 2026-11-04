@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { apply, Config } from './host.js';
+import {REPLY_CONTEXT_POLICY} from './reply-draft-context.mjs';
 const copy = value => value === undefined ? undefined : structuredClone(value);
 function effects(target = {}) {
   const pending = new Set();
@@ -101,7 +102,7 @@ test('concurrent revision CAS accepts exactly one save',async t=>{
 });
 test('reply options defaults display and exact tool schema are exposed',async t=>{
   const h=await setup(t);
-  assert.deepEqual(await h.operate({action:'reply-options'}),{auto:true,delaySeconds:5,revision:0,provider:'',model:'',resolved:{provider:'draft',model:'gpt-6-luna'}});
+  assert.deepEqual(await h.operate({action:'reply-options'}),{auto:true,delaySeconds:5,revision:0,provider:'',model:'',resolved:{provider:'draft',model:'gpt-6-luna'},contextPolicy:REPLY_CONTEXT_POLICY});
   const display=await h.operate({action:'display'});assert.equal(display.replyDraftAuto,true);assert.equal(display.replyDraftDelaySeconds,5);
   const tool=h.tools.get('atelier'),properties=tool.parameters.properties;
   assert.ok(properties.action.enum.includes('reply-options'));assert.ok(properties.action.enum.includes('reply-models'));
@@ -119,7 +120,7 @@ test('reply option updates use full save validation and CAS without resetting cu
   const h=await setup(t);await save(h,{extraPrompt:'preserve prompt',rotationSeconds:9,phrases:['preserve phrases']});
   const before=await h.operate({action:'settings'});
   const changed=await h.operate({action:'reply-options',revision:before.revision,replyOptions:{auto:false,delaySeconds:0}});
-  assert.deepEqual(changed,{auto:false,delaySeconds:0,revision:before.revision+1,provider:'',model:'',resolved:{provider:'draft',model:'gpt-6-luna'}});
+  assert.deepEqual(changed,{auto:false,delaySeconds:0,revision:before.revision+1,provider:'',model:'',resolved:{provider:'draft',model:'gpt-6-luna'},contextPolicy:REPLY_CONTEXT_POLICY});
   const after=await h.operate({action:'settings'});
   assert.deepEqual(after.settings,{...before.settings,replyDraftAuto:false,replyDraftDelaySeconds:0});
   await assert.rejects(h.operate({action:'reply-options',revision:before.revision,replyOptions:{auto:true,delaySeconds:60}}),/其他窗口/);

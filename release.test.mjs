@@ -54,7 +54,7 @@ test('display resources and exported local files exist',async()=>{
   for(const path of Object.values(pkg.exports).filter(path=>!path.includes('*')))await access(new URL(path,import.meta.url));
   for(const locale of ['en','zh']){const value=JSON.parse(await read(`./locale/${locale}.json`));assert.ok(value.meta.title);assert.ok(value.meta.description);}
   const svg=await read('./icon.svg');assert.match(svg,/<svg\b/);assert.ok(Buffer.byteLength(svg)<256*1024);
-  assert.ok(pkg.files.includes('core.mjs'));assert.ok(!pkg.files.includes('node_modules'));
+  assert.ok(pkg.files.includes('core.mjs'));assert.ok(pkg.files.includes('reply-draft-context.mjs'));assert.ok(!pkg.files.includes('node_modules'));
 });
 
 test('all metrics share hover and keyboard focus tooltip bindings',async()=>{

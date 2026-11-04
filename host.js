@@ -1,6 +1,7 @@
 import Schema from '@deepseek-ai/schemastery';
 import { z } from 'zod';
 import {createModelManager} from './model-manager.mjs';
+import {REPLY_CONTEXT_POLICY} from './reply-draft-context.mjs';
 import {createReplyDraftService,initReplySource,foldReplySource} from './reply-draft.mjs';
 import { randomUUID } from 'node:crypto';
 import {outputThroughput} from './ui-format.mjs';
@@ -242,7 +243,7 @@ export async function apply(ctx, config) {
     const {items,recommended}=await replyModels();
     const provider=value.replyDraftProvider,model=value.replyDraftModel;
     const resolved=provider?(items.some(row=>row.provider===provider&&row.model===model)?{provider,model}:null):recommended;
-    return {auto:value.replyDraftAuto,delaySeconds:value.replyDraftDelaySeconds,revision:currentRevision,provider,model,resolved};
+    return {auto:value.replyDraftAuto,delaySeconds:value.replyDraftDelaySeconds,revision:currentRevision,provider,model,resolved,contextPolicy:REPLY_CONTEXT_POLICY};
   }
   async function resolveDraftRoute(){
     const {resolved}=await replyOptions();

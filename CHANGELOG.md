@@ -4,6 +4,8 @@ All notable public-release changes are documented here. Versions follow Semantic
 
 ## [Unreleased]
 
+- Task-aware reply candidates now read up to6 recent user turns/12 user-assistant text rows, capped at24K text characters with explicit truncation. Prompt prefers concrete progress-oriented replies over deferred acknowledgements; sensitive operations still require confirmation and candidates are never authorization. Excludes system/developer, reasoning, tool and attachment content; recent-context changes invalidate results. Live read-only options confirm contextPolicy v2.148 checks pass; output quality with real Luna remains user-reviewed, not guaranteed by mock tests.
+
 - Suggestions now use an independently selected model, defaulting to available Luna (preferring exact gpt-6-luna); read-only catalog and validated revision-checked saves never change conversation selection. Replaced the separate draft/gear/arrow controls with one left-side Suggestions button and consolidated settings. Candidate presence conditionally hides native placeholder and reserves Tab space.142 checks pass; local UI confirms hidden placeholder, empty actual input and typing discards the candidate. Daily route readback resolves myapi/gpt-6-luna; no paid Luna probe.
 
 - Recover reply-options reads after transient Host/Client update skew with bounded read-only retries and a fresh read when settings opens; successful reads clear their own stale error. No model-generation retries are added. Current live Host options read succeeds; original reported failing action is not captured.135 checks pass.
