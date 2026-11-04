@@ -363,119 +363,74 @@ window.__ModuleLoader__.load({
       });
     }
 
-    // rc5 composer API only: never setDraft(), submit(), or mutate the editor DOM.
-    function replyDraftInputEmpty(input) {
-      return !!input && input.draft === '' && input.phase === 'plain' && !input.claim
-        && Array.isArray(input.attachmentIds) && input.attachmentIds.length === 0
-        && Array.isArray(input.occurrences) && input.occurrences.length === 0;
+    // Candidates remain plugin state until an explicit unmodified Tab accepts them.
+    function replyDraftInputEmpty(input){return !!input&&input.draft===''&&input.phase==='plain'&&!input.claim&&Array.isArray(input.attachmentIds)&&input.attachmentIds.length===0&&Array.isArray(input.occurrences)&&input.occurrences.length===0;}
+    function replyDraftSessionReady(session){return !!session&&session.openState==='open'&&!session.running&&!session.removed&&Array.isArray(session.pendingSubmissions)&&session.pendingSubmissions.length===0;}
+    function replyDraftReady(state){return !!state.sessionId&&!!state.sourceMessageId&&replyDraftInputEmpty(state.input)&&replyDraftSessionReady(state.session)&&state.editable&&!state.composing&&typeof state.actions?.captureInsertion==='function'&&typeof state.actions?.insertText==='function';}
+    function replyDraftCanApply(before,after){return replyDraftReady(after)&&before.sessionId===after.sessionId&&before.sourceMessageId===after.sourceMessageId&&before.actions===after.actions&&before.editor===after.editor&&before.touch===after.touch&&before.epoch===after.epoch&&before.input.draftRev===after.input.draftRev&&before.input.attachmentIds===after.input.attachmentIds;}
+    async function generateReplyDraft({read,call,automatic=false}){
+     const before=read();if(!replyDraftReady(before))return null;
+     const span=before.actions.captureInsertion();if(span.start!==0||span.end!==0||span.draftRev!==before.input.draftRev)return null;
+     const result=await call('reply-draft',{sessionId:before.sessionId,sourceMessageId:before.sourceMessageId,automatic});
+     if(!result||typeof result.text!=='string'||!result.text.trim()||result.reasoningEffort!=='low'||result.sourceMessageId!==before.sourceMessageId)throw Error('Invalid reply draft response');
+     return replyDraftCanApply(before,read())?{before,span,result}:null;
     }
-    function replyDraftSessionReady(session) {
-      return !!session && session.openState === 'open' && !session.running && !session.removed
-        && Array.isArray(session.pendingSubmissions) && session.pendingSubmissions.length === 0;
+    function acceptReplyDraft(candidate,state){return !!candidate&&replyDraftCanApply(candidate.before,state)&&candidate.before.actions.insertText(candidate.result.text,candidate.span);}
+    function replyDraftTab(event){return event.key==='Tab'&&!event.shiftKey&&!event.ctrlKey&&!event.altKey&&!event.metaKey&&!event.isComposing&&!event.repeat;}
+    function scheduleReplyDraft({ready,auto,delaySeconds,sourceMessageId,attempted,run,set=setTimeout,clear=clearTimeout}){
+     if(!ready||!auto||!sourceMessageId||attempted.has(sourceMessageId)||!Number.isInteger(delaySeconds)||delaySeconds<0||delaySeconds>60)return()=>{};
+     const timer=set(()=>{if(attempted.has(sourceMessageId))return;attempted.add(sourceMessageId);run();},delaySeconds*1000);return()=>clear(timer);
     }
-    function replyDraftCanApply(before, after) {
-      return before.sessionId === after.sessionId && before.actions === after.actions
-        && before.session === after.session && before.editor === after.editor
-        && before.touch === after.touch && before.epoch === after.epoch && after.editable && !after.composing
-        && replyDraftSessionReady(after.session) && replyDraftInputEmpty(after.input)
-        && before.input.draftRev === after.input.draftRev
-        // Attachments do not advance draftRev. Identity also catches add/remove churn.
-        && before.input.attachmentIds === after.input.attachmentIds;
+    function observeReplyDraftEditor(editor,changed,{now=Date.now,Observer=globalThis.MutationObserver}={}){
+     let touch=0,composing=false,until=0,active=true,timer;
+     const notify=()=>{touch++;changed();};const start=()=>{composing=true;notify();};const end=()=>{composing=false;until=now()+10;notify();clearTimeout(timer);timer=setTimeout(()=>active&&changed(),11);};
+     const edits=['beforeinput','input','paste','drop','cut'],capture={capture:true};editor.addEventListener('compositionstart',start,capture);editor.addEventListener('compositionend',end,capture);for(const type of edits)editor.addEventListener(type,notify,capture);
+     const observer=Observer?new Observer(notify):null;observer?.observe(editor,{attributes:true,attributeFilter:['data-composer-composing','contenteditable']});
+     return{read:()=>({editor,touch,editable:active&&editor.isConnected&&editor.isContentEditable,composing:composing||now()<until||editor.hasAttribute('data-composer-composing')}),dispose(){active=false;clearTimeout(timer);observer?.disconnect();editor.removeEventListener('compositionstart',start,capture);editor.removeEventListener('compositionend',end,capture);for(const type of edits)editor.removeEventListener(type,notify,capture);}};
     }
-    async function generateReplyDraft({ read, call }) {
-      const before = read();
-      if (!replyDraftInputEmpty(before.input) || !replyDraftSessionReady(before.session)
-        || !before.editable || before.composing || !before.sessionId
-        || typeof before.actions?.captureInsertion !== 'function' || typeof before.actions?.insertText !== 'function') {
-        return { kind: 'blocked' };
+    function installReplyDraft(ctx,React,call){
+     const h=React.createElement,views=new Map();
+     function channel(id){if(!views.has(id))views.set(id,{text:'',listeners:new Set()});return views.get(id);}
+     function publish(id,text){const view=channel(id);if(view.text===text)return;view.text=text;for(const fn of view.listeners)fn();}
+     function Candidate(props){const view=channel(props.sessionId);const text=React.useSyncExternalStore(fn=>{view.listeners.add(fn);return()=>view.listeners.delete(fn);},()=>view.text);return text?h('div',{'data-atelier-reply-candidate':'',className:'atelier-reply-candidate','aria-live':'polite'},h('span',null,text),h('small',null,' Tab ↹')):null;}
+     function ReplyDraft(props){
+      React.useSyncExternalStore(fn=>ctx.locale.subscribe(fn),()=>ctx.locale.getSnapshot());const zh=ctx.locale.getSnapshot().active.startsWith('zh'),t=(cn,en)=>zh?cn:en;
+      const anchor=React.useRef(null),watch=React.useRef(null),live=React.useRef({}),epoch=React.useRef(0),mounted=React.useRef(false),flight=React.useRef(false),candidate=React.useRef(null),attempted=React.useRef(new Set());
+      const[settingsOpen,setSettingsOpen]=React.useState(false),[busy,setBusy]=React.useState(false),[options,setOptions]=React.useState(null),[form,setForm]=React.useState(null),[saving,setSaving]=React.useState(false),[message,setMessage]=React.useState(''),[tick,rerender]=React.useState(0);
+      const selectInput=React.useCallback(input=>{live.current.input=input;return input;},[]),selectSession=React.useCallback(session=>{live.current.session=session;return session;},[]);
+      const input=props.useInput(selectInput),session=props.useSession(selectSession),sourceMessageId=props.useProjection('atelierReplySource',s=>s?.messageId??null);
+      live.current={...live.current,input,session,sourceMessageId,sessionId:props.sessionId,actions:props.inputActions};
+      const read=()=>({...live.current,...(watch.current?.read()??{editable:false,composing:true}),epoch:epoch.current});
+      const drop=()=>{candidate.current=null;publish(props.sessionId,'');};
+      React.useLayoutEffect(()=>{
+       mounted.current=true;epoch.current++;flight.current=false;setBusy(false);drop();setMessage('');attempted.current=new Set();
+       const editor=anchor.current?.closest('[data-composer-card]')?.querySelector('[data-composer-input]');
+       watch.current=editor?observeReplyDraftEditor(editor,()=>{drop();if(mounted.current)rerender(n=>n+1);}):null;
+       const keys=event=>{if(event.key==='Escape'){drop();return;}if(!replyDraftTab(event)||!candidate.current)return;const state=read();if(state.editor!==event.target||!replyDraftCanApply(candidate.current.before,state)){drop();return;}event.preventDefault();event.stopImmediatePropagation();const chosen=candidate.current;drop();acceptReplyDraft(chosen,state);};
+       editor?.addEventListener('keydown',keys,true);
+       const visibility=()=>{drop();epoch.current++;rerender(n=>n+1);};document.addEventListener('visibilitychange',visibility);rerender(n=>n+1);
+       return()=>{mounted.current=false;epoch.current++;drop();watch.current?.dispose();watch.current=null;editor?.removeEventListener('keydown',keys,true);document.removeEventListener('visibilitychange',visibility);};
+      },[props.sessionId,props.inputActions]);
+      React.useEffect(()=>{let active=true;call('reply-options',{}).then(value=>{if(active){setOptions(value);setForm({auto:value.auto,delaySeconds:value.delaySeconds});}}).catch(error=>active&&setMessage(String(error.message??error)));return()=>{active=false;};},[props.sessionId]);
+      React.useEffect(()=>{if(candidate.current&&!replyDraftCanApply(candidate.current.before,read()))drop();},[input,session,sourceMessageId,tick]);
+      async function generate(automatic=false){
+       if(flight.current||!replyDraftReady(read())||document.visibilityState!=='visible')return;
+       flight.current=true;setBusy(true);drop();setMessage('');const token=epoch.current;
+       try{const result=await generateReplyDraft({read,call,automatic});if(!mounted.current||token!==epoch.current)return;if(result){candidate.current=result;publish(props.sessionId,result.result.text);}}
+       catch(error){if(automatic&&String(error.message??error).includes('already-attempted'))return;if(mounted.current&&token===epoch.current)setMessage(t('生成失败：','Generation failed: ')+String(error.message??error));}
+       finally{if(mounted.current){flight.current=false;setBusy(false);}}
       }
-      const span = before.actions.captureInsertion();
-      if (span.start !== 0 || span.end !== 0 || span.draftRev !== before.input.draftRev) return { kind: 'blocked' };
-      const result = await call('reply-draft', { sessionId: before.sessionId });
-      if (!result || typeof result.text !== 'string' || !result.text.trim() || result.reasoningEffort !== 'low') {
-        throw new Error('Invalid reply draft response');
-      }
-      // No await between the extra attachment/composition/session checks and CAS.
-      if (!replyDraftCanApply(before, read()) || !before.actions.insertText(result.text, span)) return { kind: 'manual', ...result };
-      return { kind: 'inserted', ...result };
-    }
-
-    // Read-only observation scoped to this button's composer; IME is not in InputState.
-    function observeReplyDraftEditor(editor, changed, { now = Date.now, Observer = globalThis.MutationObserver } = {}) {
-      let touch = 0, composing = false, composingUntil = 0, active = true, timer;
-      const notify = () => { touch += 1; changed(); };
-      const start = () => { clearTimeout(timer); composing = true; notify(); };
-      const end = () => {
-        composing = false; composingUntil = now() + 10; notify();
-        clearTimeout(timer); timer = setTimeout(() => { if (active) changed(); }, 11);
-      };
-      const edits = ['beforeinput', 'input', 'paste', 'drop', 'cut'], capture = { capture: true };
-      editor.addEventListener('compositionstart', start, capture);
-      editor.addEventListener('compositionend', end, capture);
-      for (const type of edits) editor.addEventListener(type, notify, capture);
-      const observer = Observer ? new Observer(notify) : null;
-      observer?.observe(editor, { attributes: true, attributeFilter: ['data-composer-composing', 'contenteditable'] });
-      return {
-        read: () => ({ editor, touch, editable: active && editor.isConnected && editor.isContentEditable,
-          composing: composing || now() < composingUntil || editor.hasAttribute('data-composer-composing') }),
-        dispose() {
-          active = false; clearTimeout(timer); observer?.disconnect();
-          editor.removeEventListener('compositionstart', start, capture);
-          editor.removeEventListener('compositionend', end, capture);
-          for (const type of edits) editor.removeEventListener(type, notify, capture);
-        },
-      };
-    }
-
-    function installReplyDraft(ctx, React, call) {
-      const h = React.createElement;
-      function ReplyDraft(props) {
-        React.useSyncExternalStore(fn => ctx.locale.subscribe(fn), () => ctx.locale.getSnapshot());
-        const zh = ctx.locale.getSnapshot().active.startsWith('zh');
-        const t = (cn, en) => zh ? cn : en;
-        const anchor = React.useRef(null), editorWatch = React.useRef(null), live = React.useRef({});
-        const request = React.useRef(0), mounted = React.useRef(false), inFlight = React.useRef(false);
-        const [busy, setBusy] = React.useState(false), [message, setMessage] = React.useState('');
-        const [manual, setManual] = React.useState(null), [, rerender] = React.useState(0);
-        // Stable selectors see source notifications before React commits.
-        const selectInput = React.useCallback(input => { live.current.input = input; return input; }, []);
-        const selectSession = React.useCallback(session => { live.current.session = session; return session; }, []);
-        const input = props.useInput(selectInput), session = props.useSession(selectSession);
-        live.current = { ...live.current, sessionId: props.sessionId, actions: props.inputActions, input, session };
-        React.useLayoutEffect(() => {
-          mounted.current = true; request.current += 1; inFlight.current = false; setBusy(false); setManual(null); setMessage('');
-          const editor = anchor.current?.closest('[data-composer-card]')?.querySelector('[data-composer-input]');
-          editorWatch.current = editor ? observeReplyDraftEditor(editor, () => { if (mounted.current) rerender(n => n + 1); }) : null;
-          rerender(n => n + 1);
-          return () => { mounted.current = false; request.current += 1; editorWatch.current?.dispose(); editorWatch.current = null; };
-        }, [props.sessionId, props.inputActions]);
-        const read = () => ({ ...live.current, ...(editorWatch.current?.read() ?? { editable: false, composing: true }), epoch: request.current });
-        const state = read();
-        const disabled = busy || !replyDraftInputEmpty(input) || !replyDraftSessionReady(session)
-          || !state.editable || state.composing || typeof props.inputActions?.insertText !== 'function';
-        async function generate() {
-          if (inFlight.current) return;
-          inFlight.current = true;
-          const seq = ++request.current; setBusy(true); setMessage(''); setManual(null);
-          try {
-            const result = await generateReplyDraft({ read, call });
-            if (!mounted.current || seq !== request.current) return;
-            if (result.kind === 'manual') { setManual(result); setMessage(t('输入已变化，未填入。请手动复制草稿。', 'Input changed; nothing was inserted. Copy the draft manually.')); }
-            else if (result.kind === 'inserted') setMessage(t('草稿已填入，未发送。', 'Draft inserted, not sent.'));
-            else setMessage(t('请先清空输入和附件，结束输入法编辑后重试。', 'Clear input and attachments and finish IME composition first.'));
-          } catch (error) { if (mounted.current && seq === request.current) setMessage(t('生成失败：', 'Generation failed: ') + (error?.message ?? String(error))); }
-          finally { if (mounted.current && seq === request.current) { inFlight.current = false; setBusy(false); } }
-        }
-        const help = t('生成你对助手最后一条消息的简短回复。会发起一次付费模型请求，使用该消息的模型；仅本次请求使用 low 低强度思考（不是关闭），不改会话设置。只填草稿，不自动发送；已有输入或附件时不可用。', 'Draft your concise reply to the assistant’s last message. Makes one billable request using that message’s model, with low reasoning for this request only (not thinking off). Does not change session settings, send, or overwrite input/attachments.');
-        return h('span', { ref: anchor, className: 'atelier-reply-draft', 'data-atelier-reply-draft': '' },
-          h('style', null, `.atelier-reply-draft{position:relative;display:inline-flex;align-items:center;font:inherit;color:var(--dsw-alias-label-secondary)}.atelier-reply-draft button{font:inherit;color:inherit;background:transparent;border:0;border-radius:6px;padding:5px 7px;cursor:pointer}.atelier-reply-draft button:hover{background:var(--dsw-alias-bg-layer-1)}.atelier-reply-draft button:disabled{opacity:.45;cursor:default}.atelier-reply-draft button:focus-visible,.atelier-reply-draft textarea:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:2px}.atelier-reply-draft-panel{position:absolute;bottom:100%;right:0;z-index:20;width:min(340px,75vw);max-height:50vh;overflow:auto;padding:12px;border:1px solid var(--dsw-alias-border-l1);border-radius:8px;background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary);font-size:12px}.atelier-reply-draft-panel p{margin:0 0 8px}.atelier-reply-draft textarea{box-sizing:border-box;width:100%;min-height:100px;resize:vertical;font:inherit;color:inherit;background:var(--dsw-alias-bg-base);border:1px solid var(--dsw-alias-border-l1);border-radius:4px}.atelier-reply-draft-status{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}`),
-          h('button', { type: 'button', disabled, onClick: generate, title: help, 'aria-label': help, 'aria-busy': busy, 'data-atelier-reply-draft-button': '' }, busy ? t('生成中…', 'Drafting…') : t('回复草稿', 'Reply draft')),
-          h('span', { role: 'status', 'aria-live': 'polite', className: 'atelier-reply-draft-status' }, message),
-          message && h('section', { className: 'atelier-reply-draft-panel', 'aria-label': t('回复草稿结果', 'Reply draft result') },
-            h('p', null, message), manual && h('textarea', { readOnly: true, value: manual.text, 'aria-label': t('手动复制回复草稿', 'Copy reply draft manually'), onFocus: event => event.currentTarget.select() }),
-            h('button', { type: 'button', onClick: () => { setMessage(''); setManual(null); } }, t('关闭', 'Dismiss'))));
-      }
-      return ctx.slots.inject('conversation.input.right', () => ctx.slots.register({ name: 'conversation.input.right', id: 'atelier-reply-draft', order: 40 }, ReplyDraft));
+      const state=read(),ready=replyDraftReady(state)&&document.visibilityState==='visible';
+      React.useEffect(()=>scheduleReplyDraft({ready:ready&&!busy&&!settingsOpen&&!candidate.current,auto:options?.auto===true,delaySeconds:options?.delaySeconds,sourceMessageId,attempted:attempted.current,run:()=>generate(true)}),[ready,busy,settingsOpen,sourceMessageId,input,session,tick,options]);
+      async function save(event){event.preventDefault();if(!form||!Number.isInteger(form.delaySeconds)||form.delaySeconds<0||form.delaySeconds>60)return;setSaving(true);try{const value=await call('reply-options',{revision:options.revision,replyOptions:form});setOptions(value);setForm({auto:value.auto,delaySeconds:value.delaySeconds});drop();setMessage(t('已保存','Saved'));}catch(error){setMessage(String(error.message??error));}finally{setSaving(false);}}
+      const help=t('自动生成使用上一条助手模型的low档位，可能收费；候选按Tab采纳，正常输入即丢弃，不自动发送。','Automatic drafts use the previous assistant model at low reasoning and may incur charges. Tab accepts; typing discards. Never sends.');
+      return h('span',{ref:anchor,className:'atelier-reply-draft'},
+       h('style',null,'.atelier-reply-draft{display:inline-flex;align-items:center;gap:4px;font:inherit;color:var(--dsw-alias-label-secondary)}.atelier-reply-draft button,.atelier-reply-draft summary{font:inherit;color:inherit;background:transparent;border:0;border-radius:6px;padding:5px 7px;cursor:pointer}.atelier-reply-draft button:disabled{opacity:.45}.atelier-reply-draft details{position:relative}.atelier-reply-draft details>form{position:absolute;bottom:100%;right:0;width:280px;padding:12px;z-index:25;border:1px solid var(--dsw-alias-border-l2);border-radius:8px;background:var(--dsw-specific-input-major);display:grid;gap:10px}.atelier-reply-draft label{display:flex;align-items:center;gap:8px}.atelier-reply-draft input[type=number]{width:70px}.atelier-reply-candidate{position:absolute;top:12px;left:16px;right:16px;pointer-events:none;color:var(--dsw-alias-label-tertiary);font:inherit;line-height:24px;white-space:pre-wrap;overflow:hidden;max-height:96px;z-index:2}.atelier-reply-candidate small{display:inline-block;margin-left:8px;border:1px solid var(--dsw-alias-border-l2);border-radius:4px;padding:0 4px;font-size:11px}.atelier-reply-error{max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px}'),
+       h('button',{type:'button',disabled:busy||!ready,onClick:()=>generate(false),title:help,'data-atelier-reply-draft-button':''},busy?t('生成中…','Drafting…'):t('回复草稿','Reply draft')),
+       h('details',{onToggle:event=>setSettingsOpen(event.currentTarget.open)},h('summary',{'aria-label':t('回复草稿设置','Reply draft settings')},'⚙'),settingsOpen&&form&&h('form',{onSubmit:save},h('label',null,h('input',{type:'checkbox',checked:form.auto,disabled:saving,onChange:event=>setForm({...form,auto:event.target.checked})}),t('自动生成（可能收费）','Auto generate (may incur charges)')),h('label',null,t('空闲等待（秒）','Idle delay (seconds)'),h('input',{type:'number',min:0,max:60,step:1,value:form.delaySeconds,disabled:saving,onChange:event=>setForm({...form,delaySeconds:event.target.value===''?'':Number(event.target.value)})})),h('small',null,t('0–60秒，默认5秒；每条回复自动尝试一次。Tab采纳，不自动发送。','0–60s; default 5s. One automatic attempt per reply. Tab accepts; never sends.')),h('button',{type:'submit',disabled:saving||!Number.isInteger(form.delaySeconds)||form.delaySeconds<0||form.delaySeconds>60},t('保存','Save')))),
+       h('span',{role:'status',className:'atelier-reply-error',title:message},message));
+     }
+     const cleanups=[ctx.slots.inject('conversation.input.right',()=>ctx.slots.register({name:'conversation.input.right',id:'atelier-reply-draft',order:40},ReplyDraft)),ctx.slots.inject('conversation.input.overlay',()=>ctx.slots.register({name:'conversation.input.overlay',id:'atelier-reply-candidate',order:40},Candidate))];return()=>{for(const dispose of cleanups)dispose();views.clear();};
     }
 
     const React = require('react');

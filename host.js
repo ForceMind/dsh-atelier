@@ -1,7 +1,7 @@
 import Schema from '@deepseek-ai/schemastery';
 import { z } from 'zod';
 import {createModelManager} from './model-manager.mjs';
-import {createReplyDraftService} from './reply-draft.mjs';
+import {createReplyDraftService,initReplySource,foldReplySource} from './reply-draft.mjs';
 import { randomUUID } from 'node:crypto';
 import {outputThroughput} from './ui-format.mjs';
 import {referencePriceBook,activePriceRules} from './price-book.mjs';
@@ -77,6 +77,10 @@ export async function apply(ctx, config) {
 
   ctx.sessionProjections.register({key: KEY, stateVersion: 7, stateSchema: z.unknown(),
     init: () => initStats(), apply: foldStats, wire: {viewSchema: z.unknown(), view: state => state},
+  });
+  const replySourceSchema=z.object({messageId:z.string().nullable()});
+  ctx.sessionProjections.register({key:'atelierReplySource',stateVersion:1,stateSchema:replySourceSchema,
+    init:initReplySource,apply:foldReplySource,wire:{viewSchema:replySourceSchema,view:state=>state},
   });
 
   function bindAgent(agent) {
@@ -223,7 +227,23 @@ export async function apply(ctx, config) {
       if (!input || typeof input !== 'object') throw new Error('操作参数必须是对象');
       const action = input.action ?? 'status';
       const sessionId = callerSessionId ?? input.sessionId;
-      if(action==='reply-draft')return replyDraft.generate(sessionId);
+      if(action==='reply-draft')return replyDraft.generate(sessionId,input);
+      if(action==='reply-options'){
+        if(Object.prototype.hasOwnProperty.call(input,'replyOptions')){
+          const options=input.replyOptions;
+          if(!options||typeof options!=='object'||Array.isArray(options)||![Object.prototype,null].includes(Object.getPrototypeOf(options)))throw new TypeError('replyOptions must be a plain object');
+          for(const key of Reflect.ownKeys(options)){
+            if(!['auto','delaySeconds'].includes(key))throw new TypeError(`replyOptions: unknown field ${String(key)}`);
+            const descriptor=Object.getOwnPropertyDescriptor(options,key);
+            if(!descriptor?.enumerable||!('value' in descriptor))throw new TypeError(`replyOptions.${key} must be an enumerable data property`);
+          }
+          if(!Object.prototype.hasOwnProperty.call(options,'auto')||!Object.prototype.hasOwnProperty.call(options,'delaySeconds'))throw new TypeError('replyOptions.auto and replyOptions.delaySeconds are required');
+          if(!Number.isSafeInteger(input.revision)||input.revision<0)throw new TypeError('reply-options updates require an integer revision');
+          const saved=await service.operate({action:'save',revision:input.revision,settings:{...settings,replyDraftAuto:options.auto,replyDraftDelaySeconds:options.delaySeconds}},callerSessionId);
+          return {auto:saved.settings.replyDraftAuto,delaySeconds:saved.settings.replyDraftDelaySeconds,revision:saved.revision};
+        }
+        return {auto:settings.replyDraftAuto,delaySeconds:settings.replyDraftDelaySeconds,revision};
+      }
       if(['models','model-preview','model-apply'].includes(action))return modelManager.operate(input);
       if (action === 'client-report') {
         const value=input.runtime??{};
@@ -236,7 +256,7 @@ export async function apply(ctx, config) {
         };
         return {ok:true};
       }
-      if (action === 'display') return {phrases:settings.phrases,rotationSeconds:settings.rotationSeconds,chatDynamicLabels:settings.chatDynamicLabels,sidebarRecentMarks:settings.sidebarRecentMarks,sidebarRecentSnap:settings.sidebarRecentSnap,revision};
+      if (action === 'display') return {phrases:settings.phrases,rotationSeconds:settings.rotationSeconds,chatDynamicLabels:settings.chatDynamicLabels,sidebarRecentMarks:settings.sidebarRecentMarks,sidebarRecentSnap:settings.sidebarRecentSnap,replyDraftAuto:settings.replyDraftAuto,replyDraftDelaySeconds:settings.replyDraftDelaySeconds,revision};
       if (action === 'settings') return {settings,revision,priceCatalog:PRICE_CATALOG,priceBook:referencePriceBook(),scope:'profile',appliesTo:'all-current-and-future-agent-sessions',promptLibrary:promptLibrary(settings),selectedPrompt:selectedPrompt(settings),warning:promptWarnings.get(sessionId)??[]};
       if (action === 'diagnose') {
         const agent = ctx.agents.get(sessionId);
@@ -287,7 +307,7 @@ export async function apply(ctx, config) {
         return {build:'atelier-1.6.0',stats,cost:costOf(stats),cache:cacheWindow([...metadata.values()].map(row=>row.summary).filter(row=>row.sessionId===sessionId)),live,last:last ? summarize(last) : null,speed:speedRecord?{...outputThroughput(speedRecord),requestId:speedRecord.id,provider:speedRecord.provider,model:speedRecord.model,endedAt:speedRecord.endedAt,scope:'latest-valid-completed-conversation-request'}:null,thought:thoughtRecord?summarize(thoughtRecord):null,storageError,revision,
           prompt:{...state,warnings:promptWarnings.get(sessionId)??[]},
           client:graphEntry??null,
-          display:{phrases:settings.phrases,rotationSeconds:settings.rotationSeconds,captureEnabled:settings.captureEnabled,chatDynamicLabels:settings.chatDynamicLabels}};
+          display:{phrases:settings.phrases,rotationSeconds:settings.rotationSeconds,captureEnabled:settings.captureEnabled,chatDynamicLabels:settings.chatDynamicLabels,replyDraftAuto:settings.replyDraftAuto,replyDraftDelaySeconds:settings.replyDraftDelaySeconds}};
       }
       if (action === 'logs') {
         const offset = Math.max(0,Math.floor(input.offset ?? 0));
@@ -327,11 +347,11 @@ export async function apply(ctx, config) {
     },
   });
   ctx.tools.register({
-    name:'atelier', description:'查看工作台用量、cache与本会话日志，管理设置和模型容量。reply-draft 用最近助手消息的模型发起一次 low 低强度思考的短请求（可能收费），仅返回用户回复草稿，不发送消息或修改当前选择。日志按需分页。',
-    parameters:{type:'object',properties:{action:{type:'string',enum:['status','settings','save','logs','get','diagnose','display','cache','reply-draft','models','model-preview','model-apply']},provider:{type:'string',description:'models/model-preview 的精确渠道 ID。'},changes:{type:'object',properties:{contextWindow:{type:'integer',minimum:1,maximum:10000000},maxTokens:{type:'integer',minimum:1,maximum:10000000}},additionalProperties:false,description:'model-preview 要覆盖的容量字段，未传字段保持不变。'},previewId:{type:'string',description:'model-apply 使用最近预览返回的 ID，5分钟有效。'},sessionId:{type:'string'},id:{type:'string'},view:{type:'string',enum:['json','text','chunks','response']},offset:{type:'integer'},limit:{type:'integer'},revision:{type:'integer'},settings:{type:'object',description:'save 时传完整设置；先用 settings 读取版本。'}},required:['action']},
+    name:'atelier', description:'查看工作台用量、cache与本会话日志，管理设置和模型容量。reply-options 读取或保存自动草稿开关与延迟。reply-draft 用最近助手消息的模型发起一次 low 低强度思考的短请求（可能收费），仅返回用户回复草稿，不发送消息或修改当前选择。日志按需分页。',
+    parameters:{type:'object',properties:{action:{type:'string',enum:['status','settings','save','logs','get','diagnose','display','cache','reply-options','reply-draft','models','model-preview','model-apply']},replyOptions:{type:'object',properties:{auto:{type:'boolean'},delaySeconds:{type:'integer',minimum:0,maximum:60}},required:['auto','delaySeconds'],additionalProperties:false,description:'reply-options：省略时读取 {auto,delaySeconds,revision}；传入时更新，须同时传读取的 revision。'},automatic:{type:'boolean',description:'reply-draft：true 为自动请求，同会话同来源消息最多尝试一次（失败也计入）；手动请求省略。'},sourceMessageId:{type:'string',minLength:1,description:'reply-draft：可选的最近助手消息 ID；变化时拒绝请求。'},provider:{type:'string',description:'models/model-preview 的精确渠道 ID。'},changes:{type:'object',properties:{contextWindow:{type:'integer',minimum:1,maximum:10000000},maxTokens:{type:'integer',minimum:1,maximum:10000000}},additionalProperties:false,description:'model-preview 要覆盖的容量字段，未传字段保持不变。'},previewId:{type:'string',description:'model-apply 使用最近预览返回的 ID，5分钟有效。'},sessionId:{type:'string'},id:{type:'string'},view:{type:'string',enum:['json','text','chunks','response']},offset:{type:'integer'},limit:{type:'integer'},revision:{type:'integer'},settings:{type:'object',description:'save 时传完整设置；先用 settings 读取版本。'}},required:['action']},
     output:{schema:{},render:(_args,value)=>[{type:'text',text:JSON.stringify(value)}]},
     async execute(args,exec) {return service.operate(args,exec.agent?.id);},
-    isConcurrencySafe: args=>!['save','model-apply','reply-draft'].includes(args.action),
+    isConcurrencySafe: args=>!['save','model-apply','reply-draft'].includes(args.action)&&!(args.action==='reply-options'&&args.replyOptions!==undefined),
   });
   ctx.commands.register({name:'atelier',description:'显示此会话工作台状态（设置、日志和价格位于工作台视图）',handler:async invocation=>({kind:'success',text:JSON.stringify(await service.operate({action:'status'},invocation.agent.id),null,2)})});
   await prune();

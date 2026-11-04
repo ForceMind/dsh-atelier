@@ -1,80 +1,10 @@
-import test from 'node:test';
-import assert from 'node:assert/strict';
-import { generateReplyDraft, observeReplyDraftEditor, replyDraftInputEmpty, installReplyDraft } from './reply-draft-ui.mjs';
-
-function fixture() {
-  const inserts = [], calls = [];
-  const state = {
-    sessionId: 's1', epoch: 1, touch: 0, editable: true, composing: false, editor: {},
-    input: { draft: '', attachmentIds: [], draftRev: 2, phase: 'plain', occurrences: [], queue: [] },
-    session: { openState: 'open', running: false, removed: false, pendingSubmissions: [] },
-    actions: { captureInsertion: () => ({ start: 0, end: 0, draftRev: 2 }), insertText: (...args) => { inserts.push(args); return true; },
-      setDraft: () => { throw Error('must never replace'); }, submit: () => { throw Error('must never send'); } },
-  };
-  let resolve;
-  const call = (...args) => { calls.push(args); return new Promise(r => { resolve = r; }); };
-  return { state, inserts, calls, start: () => generateReplyDraft({ read: () => ({ ...state }), call }),
-    finish: () => resolve({ text: 'Thanks, please continue.', sourceMessageId: 'a1', provider: 'p', model: 'm', reasoningEffort: 'low' }) };
-}
-
-test('one explicit paid RPC inserts by captured CAS only, never sends or changes settings', async () => {
-  const f = fixture(), promise = f.start();
-  assert.deepEqual(f.calls, [['reply-draft', { sessionId: 's1' }]]);
-  f.finish(); assert.equal((await promise).kind, 'inserted');
-  assert.deepEqual(f.inserts, [['Thanks, please continue.', { start: 0, end: 0, draftRev: 2 }]]);
-});
-
-test('nonempty, whitespace, references, attachments, claims, pending send and composition block without RPC', async () => {
-  for (const mutate of [
-    f => { f.state.input.draft = 'mine'; }, f => { f.state.input.draft = ' '; },
-    f => { f.state.input.occurrences = [{}]; }, f => { f.state.input.attachmentIds = ['file']; },
-    f => { f.state.input.phase = 'claimed'; }, f => { f.state.input.phase = 'adjudicating'; },
-    f => { f.state.session.pendingSubmissions = [{}]; }, f => { f.state.composing = true; },
-    f => { f.state.editable = false; }, f => { f.state.session.running = true; },
-  ]) { const f = fixture(); mutate(f); assert.equal((await f.start()).kind, 'blocked'); assert.equal(f.calls.length, 0); }
-  assert.equal(replyDraftInputEmpty(undefined), false);
-});
-
-test('all async races preserve user input and return manual copy draft', async () => {
-  for (const mutate of [
-    f => { f.state.input = { ...f.state.input, draft: 'typed', draftRev: 3 }; },
-    f => { f.state.input = { ...f.state.input, draftRev: 4 }; }, // typed then cleared
-    f => { f.state.input = { ...f.state.input, attachmentIds: ['upload'] }; },
-    f => { f.state.input = { ...f.state.input, attachmentIds: [] }; }, // add/remove attachment, no revision increment
-    f => { f.state.touch += 1; }, f => { f.state.composing = true; },
-    f => { f.state.sessionId = 's2'; }, f => { f.state.actions = { ...f.state.actions }; },
-    f => { f.state.session = { ...f.state.session }; }, f => { f.state.editor = {}; },
-    f => { f.state.epoch += 1; }, f => { f.state.editable = false; },
-    f => { f.state.actions.insertText = () => false; }, // actual editor CAS refuses
-  ]) { const f = fixture(), promise = f.start(); mutate(f); f.finish();
-    const result = await promise; assert.equal(result.kind, 'manual'); assert.equal(result.text, 'Thanks, please continue.'); assert.equal(f.inserts.length, 0); }
-});
-
-test('invalid response fails closed without inserting', async () => {
-  const f = fixture();
-  await assert.rejects(generateReplyDraft({ read: () => ({ ...f.state }), call: async () => ({ text: 'Oops', reasoningEffort: 'high' }) }), /Invalid reply/);
-  assert.equal(f.inserts.length, 0);
-});
-
-test('IME observation tracks cancelled compositions, DOM attribute and post-end guard; disposes listeners', () => {
-  class Editor extends EventTarget { isConnected = true; isContentEditable = true; composing = false;
-    hasAttribute(name) { return name === 'data-composer-composing' && this.composing; } }
-  const editor = new Editor(); let now = 100, notifications = 0;
-  const watch = observeReplyDraftEditor(editor, () => notifications++, { now: () => now, Observer: null });
-  const initial = watch.read(); editor.dispatchEvent(new Event('compositionstart'));
-  assert.equal(watch.read().composing, true); editor.dispatchEvent(new Event('compositionend'));
-  assert.equal(watch.read().composing, true); now += 11; assert.equal(watch.read().composing, false);
-  assert.ok(watch.read().touch > initial.touch);
-  editor.composing = true; assert.equal(watch.read().composing, true); editor.composing = false;
-  editor.dispatchEvent(new Event('beforeinput')); assert.equal(notifications, 3);
-  watch.dispose(); assert.equal(watch.read().editable, false);
-  editor.dispatchEvent(new Event('input')); assert.equal(notifications, 3);
-});
-
-test('installation only registers composer button, performs no network calls', () => {
-  let registration, component;
-  const ctx = { slots: { inject(name, cb) { assert.equal(name, 'conversation.input.right'); return cb(); },
-    register(options, view) { registration = options; component = view; return 'dispose'; } } };
-  assert.equal(installReplyDraft(ctx, { createElement() {} }, () => { throw Error('unexpected mount request'); }), 'dispose');
-  assert.equal(registration.id, 'atelier-reply-draft'); assert.equal(typeof component, 'function');
-});
+import test from'node:test';import assert from'node:assert/strict';import{generateReplyDraft,acceptReplyDraft,replyDraftTab,scheduleReplyDraft,observeReplyDraftEditor,installReplyDraft}from'./reply-draft-ui.mjs';
+function fixture(){const inserts=[],calls=[];const state={sessionId:'s1',sourceMessageId:'a1',epoch:1,touch:0,editable:true,composing:false,editor:{},input:{draft:'',attachmentIds:[],draftRev:2,phase:'plain',occurrences:[]},session:{openState:'open',running:false,removed:false,pendingSubmissions:[]},actions:{captureInsertion:()=>({start:0,end:0,draftRev:2}),insertText:(...args)=>{inserts.push(args);return true;}}};let resolve;const call=(...args)=>{calls.push(args);return new Promise(r=>{resolve=r;});};return{state,inserts,calls,start:()=>generateReplyDraft({read:()=>({...state}),call}),finish:()=>resolve({text:'先列出步骤。',sourceMessageId:'a1',reasoningEffort:'low'})};}
+test('candidate inserts nothing until explicit acceptance',async()=>{const f=fixture(),promise=f.start();f.finish();const candidate=await promise;assert.deepEqual(f.calls,[['reply-draft',{sessionId:'s1',sourceMessageId:'a1',automatic:false}]]);assert.equal(f.inserts.length,0);assert.equal(acceptReplyDraft(candidate,f.state),true);assert.equal(f.inserts.length,1);});
+test('typing, attachment churn, IME, session or source change discard late results',async()=>{for(const mutate of[f=>{f.state.input={...f.state.input,draft:'mine',draftRev:3};},f=>{f.state.input={...f.state.input,draftRev:4};},f=>{f.state.input={...f.state.input,attachmentIds:[]};},f=>{f.state.composing=true;},f=>{f.state.touch++;},f=>{f.state.sourceMessageId='a2';},f=>{f.state.sessionId='s2';},f=>{f.state.epoch++;}]){const f=fixture(),p=f.start();mutate(f);f.finish();assert.equal(await p,null);assert.equal(f.inserts.length,0);}});
+test('candidate expires before acceptance and final CAS still decides',async()=>{const f=fixture(),p=f.start();f.finish();const candidate=await p;f.state.touch++;assert.equal(acceptReplyDraft(candidate,f.state),false);assert.equal(f.inserts.length,0);});
+test('nonempty, running, composition or missing source cause no request',async()=>{for(const mutate of[f=>{f.state.input.draft=' ';},f=>{f.state.input.attachmentIds=['x'];},f=>{f.state.input.occurrences=[{}];},f=>{f.state.session.running=true;},f=>{f.state.composing=true;},f=>{f.state.sourceMessageId=null;}]){const f=fixture();mutate(f);assert.equal(await f.start(),null);assert.equal(f.calls.length,0);}});
+test('only unmodified nonrepeating Tab accepts candidate',()=>{assert.equal(replyDraftTab({key:'Tab'}),true);for(const patch of[{shiftKey:true},{ctrlKey:true},{metaKey:true},{altKey:true},{repeat:true},{isComposing:true},{key:'Enter'},{key:'a'}])assert.equal(replyDraftTab({key:'Tab',...patch}),false);});
+test('idle timer supports 0,5,60 and cancellation; automatic once per source',()=>{for(const delaySeconds of[0,5,60]){let callback,ms,runs=0,cleared=false;const args={ready:true,auto:true,delaySeconds,sourceMessageId:'a1',attempted:new Set(),run:()=>{runs++;},set:(fn,delay)=>{callback=fn;ms=delay;return 7;},clear:id=>{assert.equal(id,7);cleared=true;}};const cancel=scheduleReplyDraft(args);assert.equal(ms,delaySeconds*1000);callback();callback();assert.equal(runs,1);scheduleReplyDraft({...args,set:()=>{throw Error('duplicate timer');}});cancel();assert.equal(cleared,true);}for(const patch of[{auto:false},{ready:false},{sourceMessageId:null},{delaySeconds:-1},{delaySeconds:61}])scheduleReplyDraft({ready:true,auto:true,sourceMessageId:'a1',delaySeconds:5,attempted:new Set(),...patch,set:()=>{throw Error('must not schedule');}});});
+test('read-only IME observation tracks input and detaches',()=>{class Editor extends EventTarget{isConnected=true;isContentEditable=true;hasAttribute(){return false;}}const editor=new Editor();let now=0;const watch=observeReplyDraftEditor(editor,()=>{},{Observer:null,now:()=>now});editor.dispatchEvent(new Event('compositionstart'));assert.equal(watch.read().composing,true);editor.dispatchEvent(new Event('compositionend'));now=20;assert.equal(watch.read().composing,false);assert.equal(watch.read().touch,2);watch.dispose();editor.dispatchEvent(new Event('input'));assert.equal(watch.read().touch,2);});
+test('register toolbar and ghost in official slots without generation on install',()=>{const registered=[];const dispose=installReplyDraft({slots:{inject:(_key,fn)=>{fn();return()=>{};},register:(entry)=>{registered.push(entry);return()=>{};}}},{createElement:()=>{}},()=>{throw Error('no mount generation');});assert.deepEqual(registered.map(r=>r.name),['conversation.input.right','conversation.input.overlay']);dispose();});

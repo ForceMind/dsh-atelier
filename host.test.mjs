@@ -22,7 +22,8 @@ function effects(target = {}) {
 function harness({optIn=false}={}) {
   const ctx = effects(), events = new Map(), tools = new Map(), commands = new Map(), routes = [];
   const domains = new Map(), records = new Map(), writes = [], states = new Map();
-  let global, projection, opens = 0, closes = 0;
+  let global, opens = 0, closes = 0;
+  const projections=new Map();
   const table = {
     get: key => copy(records.get(key)),
     *entries() { for (const [key, value] of records) yield [key, copy(value)]; },
@@ -66,7 +67,7 @@ function harness({optIn=false}={}) {
     return [id, agent];
   }));
   ctx.agents = {list:()=>[...agents.values()],get:id=>agents.get(id)};
-  ctx.sessionProjections = {register(value){projection=value;},stateOf(session){return states.get(session.id)??projection.init();}};
+  ctx.sessionProjections = {register(value){projections.set(value.key,value);},stateOf(session,key){return states.get(session.id)?.get(key)??projections.get(key)?.init();}};
   ctx.tools = {register(tool){tools.set(tool.name,tool);}};
   ctx.commands = {register(command){commands.set(command.name,command);}};
   ctx.connection = {fetch:{register(route){routes.push(route);}}};
@@ -76,7 +77,7 @@ function harness({optIn=false}={}) {
   return {ctx,agents,tools,commands,routes,writes,records,get opens(){return opens;},get closes(){return closes;},get global(){return copy(global);},
     operate:(input,caller)=>ctx.atelier.operate(input,caller),stream:(request,next)=>events.get('llm/stream')[0].call({},request,next),
     emit:(name,payload)=>Promise.all((events.get(name)??[]).map(fn=>fn(payload))),
-    feed(id,event){states.set(id,projection.apply(states.get(id)??projection.init(),event));}};
+    feed(id,event){let cells=states.get(id);if(!cells){cells=new Map();states.set(id,cells);}for(const [key,projection]of projections)cells.set(key,projection.apply(cells.get(key)??projection.init(),event));}};
 }
 async function setup(t){const h=harness({optIn:true});await apply(h.ctx,{enabled:true});t.after(()=>h.ctx.dispose());return h;}
 const request=sessionId=>({sessionId,provider:'provider',model:'model',messages:[]});
@@ -97,6 +98,63 @@ test('concurrent revision CAS accepts exactly one save',async t=>{
   const outcomes=await Promise.allSettled(['first','second'].map(extraPrompt=>h.operate({action:'save',revision:initial.revision,settings:{...initial.settings,extraPrompt}})));
   assert.equal(outcomes.filter(row=>row.status==='fulfilled').length,1);assert.equal(h.global.revision,1);
 });
+test('reply options defaults display and exact tool schema are exposed',async t=>{
+  const h=await setup(t);
+  assert.deepEqual(await h.operate({action:'reply-options'}),{auto:true,delaySeconds:5,revision:0});
+  const display=await h.operate({action:'display'});assert.equal(display.replyDraftAuto,true);assert.equal(display.replyDraftDelaySeconds,5);
+  const tool=h.tools.get('atelier'),properties=tool.parameters.properties;
+  assert.ok(properties.action.enum.includes('reply-options'));
+  assert.deepEqual(properties.replyOptions.required,['auto','delaySeconds']);
+  assert.equal(properties.replyOptions.additionalProperties,false);
+  assert.deepEqual(properties.replyOptions.properties.delaySeconds,{type:'integer',minimum:0,maximum:60});
+  assert.equal(properties.automatic.type,'boolean');assert.equal(properties.sourceMessageId.type,'string');
+  assert.equal(tool.isConcurrencySafe({action:'reply-options'}),true);
+  assert.equal(tool.isConcurrencySafe({action:'reply-options',replyOptions:{auto:false,delaySeconds:0}}),false);
+});
+test('reply option updates use full save validation and CAS without resetting current settings',async t=>{
+  const h=await setup(t);await save(h,{extraPrompt:'preserve prompt',rotationSeconds:9,phrases:['preserve phrases']});
+  const before=await h.operate({action:'settings'});
+  const changed=await h.operate({action:'reply-options',revision:before.revision,replyOptions:{auto:false,delaySeconds:0}});
+  assert.deepEqual(changed,{auto:false,delaySeconds:0,revision:before.revision+1});
+  const after=await h.operate({action:'settings'});
+  assert.deepEqual(after.settings,{...before.settings,replyDraftAuto:false,replyDraftDelaySeconds:0});
+  await assert.rejects(h.operate({action:'reply-options',revision:before.revision,replyOptions:{auto:true,delaySeconds:60}}),/其他窗口/);
+  for(const input of [
+    {replyOptions:{auto:true,delaySeconds:1}},
+    {revision:changed.revision,replyOptions:null},
+    {revision:changed.revision,replyOptions:{auto:true}},
+    {revision:changed.revision,replyOptions:{auto:true,delaySeconds:5,extra:1}},
+    {revision:changed.revision,replyOptions:{auto:'true',delaySeconds:5}},
+    ...[-1,61,1.5,'5'].map(delaySeconds=>({revision:changed.revision,replyOptions:{auto:true,delaySeconds}})),
+  ])await assert.rejects(h.operate({action:'reply-options',...input}));
+  assert.deepEqual(await h.operate({action:'settings'}),after);
+  const outcomes=await Promise.allSettled([
+    h.operate({action:'save',revision:after.revision,settings:{...after.settings,extraPrompt:'concurrent'}}),
+    h.operate({action:'reply-options',revision:after.revision,replyOptions:{auto:true,delaySeconds:60}}),
+  ]);
+  assert.equal(outcomes.filter(row=>row.status==='fulfilled').length,1);
+  assert.equal((await h.operate({action:'settings'})).revision,after.revision+1);
+});
+test('Host reply source projection is separate from unchanged stats version and publishes only id',async t=>{
+  const h=await setup(t),session=h.agents.get('alpha').session;
+  const source=()=>h.ctx.sessionProjections.stateOf(session,'atelierReplySource');
+  assert.deepEqual(source(),{messageId:null});
+  h.feed('alpha',{type:'assistant/message',data:{message:{id:'m1',content:[{type:'text',text:'reply'}]}}});
+  assert.deepEqual(source(),{messageId:'m1'});
+  h.feed('alpha',{type:'user/message',data:{role:'user'}});assert.deepEqual(source(),{messageId:null});
+  assert.equal((await h.operate({action:'status'},'alpha')).stats.responses,1);
+});
+test('Host forwards automatic source guards and retains failed attempts across options reads',async t=>{
+  const h=await setup(t),agent=h.agents.get('alpha');let calls=0;
+  agent.status='idle';agent.session.deriveMessages=()=>[{id:'m1',role:'assistant',source:{provider:'p',model:'m'},content:[{type:'text',text:'reply'}]}];
+  h.ctx.llm={prepareCall:async()=>{calls++;throw Error('mock failure');}};
+  await assert.rejects(h.operate({action:'reply-draft',sessionId:'alpha',automatic:true,sourceMessageId:'stale'}),/变化/);assert.equal(calls,0);
+  await assert.rejects(h.operate({action:'reply-draft',sessionId:'alpha',automatic:true,sourceMessageId:'m1'}),/mock failure/);assert.equal(calls,1);
+  await h.operate({action:'display'});await h.operate({action:'reply-options'});
+  await assert.rejects(h.operate({action:'reply-draft',sessionId:'alpha',automatic:true,sourceMessageId:'m1'}),/already-attempted/);assert.equal(calls,1);
+  await assert.rejects(h.operate({action:'reply-draft',sessionId:'alpha',sourceMessageId:'m1'}),/mock failure/);assert.equal(calls,2);
+});
+
 test('session-bound logs/get reject forged other-session selector',async t=>{
   const h=await setup(t);for(const id of ['alpha','beta'])await collect(h.stream(request(id),upstream([finish()])));
   const alpha=await h.operate({action:'logs'},'alpha'),beta=await h.operate({action:'logs'},'beta');

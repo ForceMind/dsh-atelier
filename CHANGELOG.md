@@ -4,6 +4,8 @@ All notable public-release changes are documented here. Versions follow Semantic
 
 ## [Unreleased]
 
+- Reply candidates now auto-generate after5 idle seconds by default, with a persisted auto switch and0–60s delay. Results stay ghost candidates until unmodified Tab; ordinary input invalidates them. No result popup or auto-send. Host deduplicates automatic attempts per session/source (including failures, latest500 in memory).133 checks pass; local no-network UI confirms candidate-before-input, Tab acceptance and settings save; full real IME/attachment matrix remains partial.
+
 - Per user request, reply drafts now explicitly use low reasoning (not off), accept but exclude reasoning chunks, and allow up to1024 output tokens subject to model limits. Session choice and send behavior stay unchanged. 119 checks pass; no automatic paid verification.
 
 - Explicit composer reply-draft button: one bounded request to the previous assistant model with thinking off, no tools/session-selection changes and no auto-send. Empty-input/attachment/IME/async-revision guards preserve user edits; conflicts expose a manual-copy draft. Local no-network acceptance confirms off/256-token/no-tool call and unchanged High session selection. Independent draft cost is not included in conversation totals; see docs/reply-draft.md. 118 checks pass; real async IME/attachment matrix remains partial.

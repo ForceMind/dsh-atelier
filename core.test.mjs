@@ -25,6 +25,14 @@ test('defaults and partial settings are complete, detached and configurable', ()
   assert.equal(validateSettings({ rotationSeconds: 1.5 }).rotationSeconds, 1.5);
 });
 
+test('automatic reply draft settings default on and require bounded integer seconds',()=>{
+  assert.equal(DEFAULT_SETTINGS.replyDraftAuto,true);assert.equal(DEFAULT_SETTINGS.replyDraftDelaySeconds,5);
+  for(const delay of [0,5,60])assert.equal(validateSettings({replyDraftAuto:false,replyDraftDelaySeconds:delay}).replyDraftDelaySeconds,delay);
+  assert.equal(validateSettings({replyDraftAuto:false}).replyDraftAuto,false);
+  for(const replyDraftAuto of [null,0,1,'true'])assert.throws(()=>validateSettings({replyDraftAuto}),/replyDraftAuto/);
+  for(const replyDraftDelaySeconds of [-1,61,1.5,NaN,Infinity,'5',null])assert.throws(()=>validateSettings({replyDraftDelaySeconds}),/replyDraftDelaySeconds/);
+});
+
 test('documented presets validate, preserve custom overrides and never price pending vendors',()=>{
   const checked=validateSettings({prices:mergeCatalogPrices([])});assert.equal(checked.prices.length,5);
   for(const entry of checked.prices){const price=priceUsage({inputTokens:1000,outputTokens:100},'channel',entry.model,checked.prices);assert.equal(price.known,true);assert.ok(price.source.includes('/blob/'));}
