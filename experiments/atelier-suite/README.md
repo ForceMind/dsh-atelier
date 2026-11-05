@@ -8,7 +8,7 @@ One installation supplies pinned complete upstream modules. Removing a separate 
 
 Pinned modules: Atelier1.7.0, Better Reasoning Effort0.5.4 and dsh-context0.73.3. The upstream package names/client IDs remain unchanged.
 
-The Suite-owned context component configuration page is implemented and passed real isolated read/edit/cancel/save/reopen/restart/standalone-rollback acceptance. See [context configuration evidence](CONTEXT-CONFIG-TEST.md). The original upstream Insights settings button and full preference-consumption parity still require separate work.
+The Suite-owned context component configuration page is implemented and passed real isolated read/edit/cancel/save/reopen/restart/standalone-rollback acceptance. See [context configuration evidence](CONTEXT-CONFIG-TEST.md). A separate fixed-digest, licensed build-time adaptation now also passes the original Insights settings-button navigation in a NEW private canonical fixture; see [navigation evidence](NAVIGATION-TEST.md). This adaptation is not enabled in the normal dependency manifest or published; full preference-consumption parity still requires separate work.
 
 BrowserSkill remains independent by explicit user decision. It is not installed, activated, migrated or removed by this candidate. Its CLI, browser extension, permissions and pairing remain independently managed.
 
