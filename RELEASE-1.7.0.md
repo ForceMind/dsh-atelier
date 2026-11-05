@@ -26,6 +26,7 @@ Publishing initially required refreshed npm authentication and then EOTP browser
 - Updated only this plugin's entry in the owned catalog fork; pinned asset changes from1.5.0 to1.7.0 and descriptions disclose default-on automatic suggestions/API fees.
 - PR: https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/pull/12218
 - Follow-up2026-11-05 15:18 Asia/Shanghai: PR remains OPEN, merge state CLEAN, both `check` and `Submission gate` completed SUCCESS; no reviews or comments requesting changes. The upstream main entry still pins1.5.0, and the configured unversioned catalog still advertises1.6.0. No revision or review ping is needed. Submission is NOT merger, and npm publication is NOT market index refresh.
+- Follow-up2026-11-05 15:28 Asia/Shanghai: PR still OPEN/CLEAN, both checks SUCCESS, no review comments; diff touches only `data/plugins/ForceMind__dsh-atelier.yml`. Configured market target remains1.6.0. Verified upstream [build workflow](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/blob/main/.github/workflows/build-site.yml): site deployment on pushes is separate from npm catalog publication, which runs on schedule (`23 2 * * *`, UTC) or maintainer dispatch. Merge alone does not prove CDN/default target refresh; no workflow was dispatched and no review ping posted.
 - This follow-up did not switch, disable, uninstall or modify the daily local Atelier installation; no scheduled task was created.
 - Direct install while indexing is pending: `dsh-atelier-plugin@1.7.0`.
 
