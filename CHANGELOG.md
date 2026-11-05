@@ -4,6 +4,8 @@ All notable public-release changes are documented here. Versions follow Semantic
 
 ## [Unreleased]
 
+- Candidates now have one clickable Tab hint: mouse and keyboard share guarded accept-only logic. Removed Send suggestion and all candidate submit code; native Send is the sole sending action.150 checks pass. The new control rendered in the isolated fixture; mouse E2E was blocked by extension overlay/human intervention and is not claimed verified.
+
 - Added explicit user-only Send suggestion action beside the candidate. Tab still only accepts. Uses guarded insertion, then revalidates exact draft/revision/session before native submit; one candidate cannot send twice, changes fail closed and no submission retry is added.151 checks pass; isolated mock UI confirms one new user message and normal follow-up response via keyboard activation.
 
 - Task-aware reply candidates now read up to6 recent user turns/12 user-assistant text rows, capped at24K text characters with explicit truncation. Prompt prefers concrete progress-oriented replies over deferred acknowledgements; sensitive operations still require confirmation and candidates are never authorization. Excludes system/developer, reasoning, tool and attachment content; recent-context changes invalidate results. Live read-only options confirm contextPolicy v2.148 checks pass; output quality with real Luna remains user-reviewed, not guaranteed by mock tests.
