@@ -4,7 +4,7 @@ This candidate references unmodified upstream npm packages by exact version. Eac
 
 | Package | Version | License | Upstream |
 |---|---|---|---|
-| dsh-atelier-plugin | 1.6.0 | MIT | ForceMind/dsh-atelier |
+| dsh-atelier-plugin | 1.7.0 | MIT | ForceMind/dsh-atelier |
 | dsh-better-reasoning-effort | 0.5.4 | MIT, Copyright 2026 HaoyueQin | HaoyueQin/dsh-better-reasoning-effort; upstream acknowledges HanaAyane slider |
 | dsh-context | 0.73.3 | Apache-2.0, bowenliang123 | bowenliang123/dsh-context |
 

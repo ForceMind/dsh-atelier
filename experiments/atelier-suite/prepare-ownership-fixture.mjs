@@ -6,10 +6,12 @@ import{execFileSync}from'node:child_process';
 import{createHash}from'node:crypto';
 const root=fileURLToPath(new URL('../../',import.meta.url));
 const version='1.7.0-suite.0';
+const currentVersion=JSON.parse(await readFile(new URL('../../package.json',import.meta.url),'utf8')).version;
 const canonical=process.argv.includes('--canonical');
 if(process.argv.slice(2).some(arg=>arg!=='--canonical'))throw Error('Unsupported fixture option');
 const run=(command,args,cwd=root)=>execFileSync(command,args,{cwd,encoding:'utf8',stdio:['ignore','pipe','pipe']});
 run(process.execPath,['build-client.mjs']);run('npm',['run','check']);
+run(process.execPath,['build-client.mjs'],fileURLToPath(new URL('./',import.meta.url)));run('npm',['test'],fileURLToPath(new URL('./',import.meta.url)));
 const[pkgFiles]=JSON.parse(run('npm',['pack','--dry-run','--ignore-scripts','--json']));
 await mkdir(resolve(root,'.release'),{recursive:true});
 const out=await mkdtemp(resolve(root,'.release/ownership-'));
@@ -19,13 +21,13 @@ for(const file of pkgFiles.files){
  if(isAbsolute(rel)||rel.startsWith('..')||/(^|\/)(\.env|\.npmrc|logs|data|node_modules|experiments)(\/|$)|\.(jsonl|log|db|sqlite)$/.test(file.path))throw Error('Unsafe release path '+file.path);
  let bytes=await readFile(resolve(root,file.path));
  if(file.path==='package.json'){const p=JSON.parse(bytes);p.version=version;bytes=Buffer.from(JSON.stringify(p,null,2)+'\n');}
- if(['host.js','client-source.js','client.js'].includes(file.path))bytes=Buffer.from(bytes.toString().replaceAll('atelier-1.6.0','atelier-'+version));
+ if(['host.js','client-source.js','client.js'].includes(file.path))bytes=Buffer.from(bytes.toString().replaceAll('atelier-'+currentVersion,'atelier-'+version));
  await mkdir(dirname(target),{recursive:true});await writeFile(target,bytes);
 }
 const[packed]=JSON.parse(run('npm',['pack',baseline,'--ignore-scripts','--pack-destination',out,'--json']));
 const candidate=resolve(out,'suite');await mkdir(candidate);
 const src=fileURLToPath(new URL('./',import.meta.url));
-for(const path of['index.js','cordis.patch.yml','icon.svg','README.md','THIRD-PARTY.md','locale/en.json','locale/zh.json']){const target=resolve(candidate,path);await mkdir(dirname(target),{recursive:true});await writeFile(target,await readFile(resolve(src,path)));}
+for(const path of['index.js','client.js','context-config.mjs','build-client.mjs','cordis.patch.yml','icon.svg','README.md','THIRD-PARTY.md','locale/en.json','locale/zh.json']){const target=resolve(candidate,path);await mkdir(dirname(target),{recursive:true});await writeFile(target,await readFile(resolve(src,path)));}
 const manifest=JSON.parse(await readFile(resolve(src,'package.json'),'utf8'));
 manifest.version=canonical?'0.1.0-ownership.2':'0.1.0-ownership.0';manifest.dependencies['dsh-atelier-plugin']='file:'+resolve(out,packed.filename);
 if(canonical){const rows=[{id:'atelier-suite',name:manifest.name},{id:'dsh-atelier',name:'dsh-atelier-plugin',disabled:true,config:{}},{id:'dsh-better-reasoning-effort',name:'dsh-better-reasoning-effort',disabled:true},{id:'dsh-context',name:'dsh-context',disabled:true}];await writeFile(resolve(candidate,'cordis.patch.yml'),'# Exclusive stopped-host fixture; original bundle layers must be absent.\n- insert:\n'+rows.map(row=>'    - '+JSON.stringify(row)).join('\n')+'\n');}

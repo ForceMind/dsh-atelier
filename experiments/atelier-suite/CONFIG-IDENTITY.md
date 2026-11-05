@@ -24,6 +24,8 @@ Actual isolated official-CLI run:
 
 ## Remaining blocker
 
+Follow-up2026-11-05: Suite-owned `plugins.row.config` is implemented and the exact installed canonical fixture passed UI non-default readback, Cancel, Save, reopen, restart restoration and original standalone installation rollback. See [acceptance evidence](CONTEXT-CONFIG-TEST.md). This solves a reachable Suite component configuration page, NOT the original Insights settings button or every preference's runtime consumption.
+
 Retaining row IDs fixes the known Host/Client namespace mismatch but NOT the upstream settings-card navigation or bundle config key. Options requiring real implementation and acceptance:
 
 - Suite-owned formal `plugins.row.config`/`plugins.bundle.config` form plus explicit Suite navigation; preserve non-Suite behavior. This does not automatically repair the old button.

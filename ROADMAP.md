@@ -55,7 +55,7 @@
 ## 当前收敛顺序
 
 1. **市场收尾**：PR12218的check／Submission gate已通过，仍待审核合并；当前配置索引仍1.6.0。不重复催审、不切换日常本地插件。
-2. **Suite整合缺口**：优先修复dsh-context设置跳转和Client配置身份，再完成非默认模型配置／浏览器记忆、热卸载与完整功能验收。已做空白／合成配置的隔离安装接管回退，不等于真实日常可卸载。见[配置身份阻断](experiments/atelier-suite/CONFIG-IDENTITY.md)。
+2. **Suite整合缺口**：已实现正式Suite上下文组件配置页，并在实际安装包下通过非默认读取、取消、保存、重开、重启及恢复独立安装后读回；17候选测试／153主检查。见[配置验收](experiments/atelier-suite/CONTEXT-CONFIG-TEST.md)。仍需修原dsh-context洞察页设置按钮、完整Client偏好消费、非默认模型配置／浏览器记忆、热卸载与完整功能矩阵，不等于真实日常可卸载。见[配置身份阻断](experiments/atelier-suite/CONFIG-IDENTITY.md)。
 3. **回复建议质量与边界**：已发布且用户验收；完整IME／附件／物理鼠标矩阵及真实模型候选质量仍需后续反馈，不冒充全部实测。
 4. **会话删除／Saturn**：删除待受支持Host生命周期接口；Saturn仍暂缓，不用桌面自动化绕过删除或权限限制。
 

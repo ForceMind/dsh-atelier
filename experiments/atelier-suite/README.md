@@ -6,7 +6,9 @@ This is a not-yet-released integration candidate, not a completed daily-profile 
 
 One installation supplies pinned complete upstream modules. Removing a separate top-level installation is possible only after migration; the dependency code remains required. This is packaging consolidation, not a claim that Atelier independently reimplemented reasoning compatibility or context analytics. Dependency installation alone does not prove activation or safe removal.
 
-Pinned modules: Atelier1.6.0, Better Reasoning Effort0.5.4 and dsh-context0.73.3. The upstream package names/client IDs remain unchanged.
+Pinned modules: Atelier1.7.0, Better Reasoning Effort0.5.4 and dsh-context0.73.3. The upstream package names/client IDs remain unchanged.
+
+The Suite-owned context component configuration page is implemented and passed real isolated read/edit/cancel/save/reopen/restart/standalone-rollback acceptance. See [context configuration evidence](CONTEXT-CONFIG-TEST.md). The original upstream Insights settings button and full preference-consumption parity still require separate work.
 
 BrowserSkill remains independent by explicit user decision. It is not installed, activated, migrated or removed by this candidate. Its CLI, browser extension, permissions and pairing remain independently managed.
 
@@ -17,7 +19,7 @@ BrowserSkill remains independent by explicit user decision. It is not installed,
 - Matching rc.5 client-modules documentation confirms enabled-Loader-entry scanning, asynchronous disposal on disable, and rejection of distinct active sources for one package name. This is a documented contract, not an executed suite transition test; isolated composition and runtime checks remain required.
 - Workspace-only `npm install --ignore-scripts --legacy-peer-deps --no-audit --no-fund` completed and generated a lockfile. `verify-artifacts.mjs` confirmed every pinned version, Host/Client entry and license. No installation scripts ran.
 - `npm ls` reports required host peers missing in this standalone directory. This is NOT a clean runtime: Cordis/DSH services/React must be provided by a compatible Harness environment, not silently duplicated to suppress the warning.
-- Checked-in candidate manifest still pins published Atelier1.6.0 and is not ready for release. `prepare-ownership-fixture.mjs` produces a private Suite variant referencing a freshly frozen Atelier1.7.0-suite.0 tarball with latest accepted features; that exact variant was installed, became the sole external direct dependency, booted successfully, and was rolled back through official CLI operations. Its local tarball dependency is fixture-only, not portable.
+- Current candidate pins published Atelier1.7.0 and ships its own row configuration Client. Canonical config fixture0.1.0-config.0 was actually installed using normal npm dependencies and passed the documented UI/rollback test. Historical ownership.0/.1 packages used local tarball references; they remain fixture-only, not release artifacts. The preparation script still generates private frozen pairs, now including Suite Client resources.
 - No bundledDependencies yet: normal dependency resolution fetches upstream npm packages, not an offline artifact. Native peer resolution and no-duplicate React/Cordis require inspection.
 
 ## Required migration order

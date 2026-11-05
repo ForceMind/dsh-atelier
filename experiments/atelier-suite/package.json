@@ -8,7 +8,8 @@
   "exports": {
     ".": "./index.js",
     "./locale/*.json": "./locale/*.json",
-    "./icon": "./icon.svg"
+    "./icon": "./icon.svg",
+    "./client": "./client.js"
   },
   "files": [
     "index.js",
@@ -16,23 +17,35 @@
     "locale/*.json",
     "icon.svg",
     "README.md",
-    "THIRD-PARTY.md"
+    "THIRD-PARTY.md",
+    "client.js",
+    "context-config.mjs",
+    "build-client.mjs"
   ],
   "engines": {
     "node": ">=22.19.0",
     "dsh": ">=0.2.1-rc.5 <0.3.0"
   },
   "dependencies": {
-    "dsh-atelier-plugin": "1.6.0",
+    "dsh-atelier-plugin": "1.7.0",
     "dsh-better-reasoning-effort": "0.5.4",
     "dsh-context": "0.73.3"
   },
   "scripts": {
-    "test": "node --test suite.test.mjs migration-plan.test.mjs config-transfer.test.mjs"
+    "test": "node --test suite.test.mjs migration-plan.test.mjs config-transfer.test.mjs context-config.test.mjs",
+    "build": "node build-client.mjs"
   },
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-plugin-manager",
+        "dsh-context"
+      ]
     }
   }
 }
