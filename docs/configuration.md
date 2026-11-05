@@ -1,8 +1,8 @@
 # Configuration and data reference
 
-## Scope and defaults
+## Scope and defaults (planned 1.7.0; DSH >= 0.2.1-rc.5 <0.3.0)
 
-All settings are one profile-global record; logs are addressed by session ID. Persisted settings use optimistic `revision` checking and a serialized save queue. A stale save fails; reload before retrying. Existing stores are merged with new defaults, not silently reset.
+All settings are one profile-global record; logs are addressed by session ID. Persisted settings use optimistic `revision` checking and a serialized save queue. A stale save fails; reload before retrying. Existing stores are merged with new defaults, not silently reset. **Automatic reply generation defaults to ON/5 seconds, not opt-in**, including when an older record has no reply settings yet. It can send bounded recent dialogue to the configured model and incur API fees. Body capture is a separate setting and remains opt-in/OFF.
 
 | Field | Fresh-store default | Accepted values / meaning |
 | --- | --- | --- |
@@ -12,7 +12,11 @@ All settings are one profile-global record; logs are addressed by session ID. Pe
 | `hideClientIdentity` | `false` | Neutralize the known `harness:source` / `app:web-surface` sections and optional contexts |
 | `chatDynamicLabels` | `false` | Opt into the shared fallback-language preference |
 | `sidebarRecentMarks` | `true` | Rolling 24-hour dot before nonblank session titles, using native summary `updatedAt`; not unread state |
-| `sidebarRecentSnap` | `true` | Brief one-shot top-edge stop for recent-hour sessions crossing in either direction, followed by one soft highlight; disabled under reduced motion, no wheel cancellation. Uses inspected DSH 0.2.1-rc.3 sidebar markup; future class changes need re-verification |
+| `sidebarRecentSnap` | `true` | Brief one-shot top-edge stop for recent-hour sessions crossing in either direction, followed by one soft highlight; disabled under reduced motion, no wheel cancellation. Version-scoped host markup; earlier rc.3 checks are historical and do not validate 1.7.0 reply features; future class changes need re-verification |
+| `replyDraftAuto` | `true` | Default-enabled automatic candidate call after eligible idle delay; can incur API fees; never auto-sends |
+| `replyDraftDelaySeconds` | `5` | Integer 0–60; zero schedules immediately when eligible, not disable |
+| `replyDraftProvider` | `''` | Exact registered provider route, max 200 chars, no NUL or surrounding whitespace; must be empty together with model or both nonblank |
+| `replyDraftModel` | `''` | Exact model ID on the chosen provider, max 300 chars, same pairing/whitespace constraints; empty pair recommends an available Luna route, preferring exact `gpt-6-luna` |
 | `captureEnabled` | `false` | Persist full normalized request/response bodies for new attempts |
 | `retentionDays` | `14` | Integer 1–365; checked on startup / completion / save |
 | `maxLogMB` | `256` | Integer 1–4096; MiB despite the historical field name |
@@ -32,6 +36,24 @@ Settings are grouped into Appearance, Prompts, Logs and API pricing. Category sw
 
 Configured pi-ai provider cards show their model list and bulk context/output controls in place. The previous reasoning-effort extension is retained in the same card. Only contextWindow/maxTokens are allowed: preview first, confirm once, compare the exact settings revision, then read back effective capacities. A preview expires after five minutes; conflicts require a new preview. No credentials, headers, IDs or reasoning capability fields are changed. Inherited model arrays require an explicitly disclosed user-layer snapshot; catalog models use per-model overrides. Future model-specific limits can still override provider defaults. The operation does not add upstream capability.
 
+## Reply candidate behavior and privacy
+
+The default empty provider/model pair means **dedicated Luna recommendation**, not inheritance from the conversation. `reply-models` lists registered routes; no available Luna requires an explicit choice, not a guessed model or silent source fallback. Generation explicitly requires `low` capability and uses low reasoning, not off; normal conversation selection is unchanged.
+
+Eligible automatic generation runs only for the visible, idle conversation with an empty plain composer and a final assistant text source. It sends up to 6 recent user turns/12 user-assistant text rows/24,000 text characters, scanning at most 200 source messages. The final assistant text is capped at 16,000 characters, earlier rows at 4,000; truncation is marked. System/developer, reasoning, tool-result, model-selection-notice and non-text attachment data are excluded. Ordinary dialogue can itself contain private code or personal data; this is not an extra redaction pass.
+
+Clicking the candidate's **Tab** and pressing keyboard **Tab** both only accept into the input. The native Send button is the sole sending action. Editing hides a same-source cached candidate; clearing input restores it with a fresh revision-guarded insertion span and **no new model request**. New source/session/editor identity, explicit regeneration or relevant lifecycle changes invalidate it. Candidates require review and cannot grant authority for sensitive operations.
+
+Calls are bounded to 1024 output tokens (or the model's lower limit) and 30 seconds, with no tools. Each session allows one in-flight draft; at most four are concurrent. Automatic successes/failures are deduplicated for the latest 500 session/source pairs in Host memory; restart is not durable deduplication. No automatic retry loop. A dispatched call may remain billable after closing automation or editing input. **Independent draft-call cost is not included in conversation usage/cost totals**, although it may appear on the provider invoice. Enabled request auditing may capture this independent call.
+
+## Timing
+
+The footer shows current/latest **turn time plus cumulative session running time**. The cumulative value includes active-turn elapsed time once and excludes idle gaps between turns; it includes tools and waits within a running turn. Observable reasoning-stream duration is separate and is not proof of provider-internal thinking time.
+
+## Integration status
+
+Integration & dependencies is navigation and explanatory copy only. Suite replacement acceptance is incomplete: Better Reasoning Effort and dsh-context remain separate upstream plugins, and BrowserSkill remains independent. Navigation, resource presence or package ownership tests do not authorize removing those installations.
+
 ## Price rule
 
 Required: `provider`, `model`, `currency`, `input`, `output`.
@@ -50,9 +72,9 @@ Input buckets follow DSH's disjoint semantics. The calculation accepts an explic
 
 Do not put API keys or authenticated URLs in `source`. Public examples use placeholder rates; there is no automatic price-update service.
 
-## Setup and cost breakdown (1.5.0 development)
+## Setup and cost breakdown
 
-The setup guide lives inside Global settings, not in a blocking application modal. It reviews body capture, prompt preset and pricing. Clicking Next only edits the form draft; only Save and finish calls the shared revision-checked save operation. Later hides the guide for the current mounted form, without setting the durable completion flag. Existing capture/identity preferences are not silently reset.
+The setup guide does not gate or opt into automatic reply calls; configure that separate default-enabled feature in Suggestions. The setup guide lives inside Global settings, not in a blocking application modal. It reviews body capture, prompt preset and pricing. Clicking Next only edits the form draft; only Save and finish calls the shared revision-checked save operation. Later hides the guide for the current mounted form, without setting the durable completion flag. Existing capture/identity preferences are not silently reset.
 
 Status costs include `components[currency]` with `input`, `output`, `cacheRead` and `cacheWrite`. Each currency is separate; no exchange rate is inferred. Components use the same per-request context tiers and rates as the total. Rounding can create sub-display-cent differences. Unknown responses stay explicit; the breakdown is only for the known subtotal. Reasoning remains inside output, never a second fee.
 
@@ -92,7 +114,11 @@ The UI uses authenticated DSH transport at `/api/atelier`. The `atelier` tool ca
 | `get` | Record view `json` / `text` / `chunks` / `response`; bounded character pages |
 | `diagnose` | Actual prompt section sizes, identity-match flags, remaining labels and Client state; no full system-prompt dump |
 | `cache` | Recent-20 reported-cache coverage and weighted ratio; latest-eight bounded normalized-prefix comparisons with no prose/hash output |
-| `display` | Small activity-text configuration |
+| `display` | Small display and reply-auto configuration |
+| `reply-models` | Read-only registered draft-model directory and Luna recommendation |
+| `reply-options` | Read auto/delay/revision/provider/model/resolved/context policy, or save exact `{auto,delaySeconds,provider?,model?}` with expected revision; provider/model must be supplied together, omitted pair preserves selection |
+| `reply-draft` | One low candidate request using the selected draft model and bounded recent dialogue; may incur API fees; returns text only, never sends or changes conversation selection |
+| `models` / `model-preview` / `model-apply` | Read and preview/confirm capacity changes with five-minute, revision-checked previews |
 
 `/atelier` is a read-only summary command. The UI's private `client-report` operation stores bounded local activation metadata; it is not a network telemetry destination. Reports from multiple windows are best-effort last-writer diagnostics.
 
@@ -103,6 +129,7 @@ Host domain: **`dsh_atelier_v1`**, routed by the active DSH `storageDomain` back
 - `global`: settings + revision.
 - `requests`: per-attempt normalized record.
 - `atelierStats`: derived in-memory/checkpointed session projection, rebuilt from committed events.
+- `atelierReplySource`: ID-only source projection; candidate text/cache is transient Client state, not an automatically submitted session message. Automatic-attempt deduplication is bounded Host memory, not a durable billing ledger.
 
 Capture disabled: body fields are omitted, but metadata and errors remain. Retention prunes on plugin start, request completion and save. There is no strict wall-clock expiry or in-UI erase-all control. Uninstall leaves data intact by design. To erase data, stop/disable the plugin, back up if necessary, and delete **only its identified domain** using the host's backend-specific procedure. Never delete an entire profile to remove these logs.
 

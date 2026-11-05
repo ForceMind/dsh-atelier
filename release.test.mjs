@@ -5,8 +5,8 @@ import {DEFAULT_SETTINGS} from './core.mjs';
 const read=path=>readFile(new URL(path,import.meta.url),'utf8');
 test('public package identity matches every runtime entry',async()=>{
   const pkg=JSON.parse(await read('./package.json'));
-  assert.equal(pkg.name,'dsh-atelier-plugin');assert.equal(pkg.private,undefined);assert.equal(pkg.license,'MIT');
-  assert.ok(pkg.engines.dsh.includes('0.2.1-rc.3'));
+  assert.equal(pkg.name,'dsh-atelier-plugin');assert.equal(pkg.version,'1.7.0');assert.equal(pkg.private,undefined);assert.equal(pkg.license,'MIT');
+  assert.ok(pkg.engines.dsh.includes('0.2.1-rc.5'));
   assert.match(pkg.repository.url,/github\.com\/ForceMind\/dsh-atelier\.git$/);
   assert.match(await read('./cordis.patch.yml'),/name: 'dsh-atelier-plugin'/);
   assert.match(await read('./client-source.js'),/id: 'dsh-atelier-plugin'/);

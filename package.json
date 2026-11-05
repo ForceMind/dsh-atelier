@@ -1,7 +1,7 @@
 {
   "name": "dsh-atelier-plugin",
-  "version": "1.6.0",
-  "description": "Local-first DeepSeek Harness workbench: compact model metrics, API cost estimates, a global prompt library, and opt-in request auditing.",
+  "version": "1.7.0",
+  "description": "DeepSeek Harness workbench with model metrics, API cost estimates, context-aware reply suggestions, prompt presets and opt-in request auditing.",
   "type": "module",
   "license": "MIT",
   "author": "ForceMind",
@@ -26,7 +26,7 @@
   ],
   "engines": {
     "node": ">=22.19.0",
-    "dsh": ">=0.2.1-rc.3 <0.3.0"
+    "dsh": ">=0.2.1-rc.5 <0.3.0"
   },
   "packageManager": "pnpm@11.28.5",
   "exports": {
@@ -99,7 +99,7 @@
     },
     "compatibility": {
       "dshReleases": {
-        "0.2.1-rc.3": "compatible"
+        "0.2.1-rc.5": "compatible"
       }
     }
   }

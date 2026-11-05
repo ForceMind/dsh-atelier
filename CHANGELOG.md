@@ -2,33 +2,29 @@
 
 All notable public-release changes are documented here. Versions follow Semantic Versioning; the early DSH integration remains experimental.
 
-## [Unreleased]
+## [1.7.0] - 2026-11-05
 
-- Keep a same-source candidate cached while the user edits; clearing input restores it with a fresh guarded insertion span and no new LLM request. Source/session/editor changes still reject restoration. Tab returns to the candidate's bottom-right, without a separate blank action row; only its small button catches pointers.153 checks pass; local fixture verifies typing a then Backspace restores the candidate.
+### Important defaults and compatibility
+- Requires DSH >=0.2.1-rc.5 <0.3.0. Earlier rc.3 validation applies to historical versions, not the new composer workflow.
+- Automatic reply suggestions are ON by default after5 idle seconds and may incur API fees. The dedicated model defaults to available Luna at low reasoning; low is not thinking off. Suggestions never auto-send. Body capture remains OFF by default; existing profile choices are preserved.
 
-- Fixed regression where candidate overlay intercepted input clicks. Candidate text is now pointer-transparent, native editable hit-area matches text height, and clickable Tab moves into the existing toolbar so no extra blank action row is reserved.151 checks pass; isolated hit-test reaches editor at second-line coordinates and typing a discards candidate without sending. Automatic physical click remains blocked by browser-extension overlay, not claimed verified.
+### Added
+- Context-aware user reply suggestions from up to6 recent user turns/12 user-assistant text rows, capped at24K characters with explicit truncation. Prompts prefer concrete task progress while retaining confirmation boundaries for sensitive actions; user review remains essential.
+- One compact Suggestions entry with persisted auto switch,0–60s delay, independent model selector and Generate now. Empty route chooses advertised Luna, preferring exactgpt-6-luna; no invented route or silent conversation-model change.
+- Keyboard Tab and clickable Tab share guarded accept-only behavior; native Send is the only sending action. Editing hides the cached same-source candidate; clearing input restores it without another model call. Source/session/settings changes clear stale results.
+- Turn and cumulative session running time together, excluding idle gaps; duplicate end events cannot double-count duration (projection v7).
+- Integration/dependency navigation and read-only reasoning-default information; this does not replace Better Reasoning Effort or dsh-context. BrowserSkill remains independent.
 
-- Multi-line candidates now match the native editor's computed typography, padding and width; measured candidate height reserves composer space instead of overlaying the toolbar. Tab occupies a separate action row; long candidates scroll. Local mock UI verified matching geometry and readable542px viewport, and accept-only activation.150 checks pass; automatic mouse click still blocked by extension overlay.
+### Fixed and safeguards
+- Candidate typography matches native input; text height reserves the actual editable hit area, avoiding toolbar overlap. Candidate text is click-through. Tab stays at the candidate corner without an independent blank action row.
+- Bounded read-only settings recovery after transient Client/Host update skew, without retrying paid model generation.
+- One automatic attempt per session/source in the running Host, including failures (latest500 in memory); stale source/context checks, single-flight admission and guarded insertion protect user edits.
+- Independent suggestion charges are not included in conversation usage/cost totals; audit capture may still record the independent request when enabled.
 
-- Candidates now have one clickable Tab hint: mouse and keyboard share guarded accept-only logic. Removed Send suggestion and all candidate submit code; native Send is the sole sending action.150 checks pass. The new control rendered in the isolated fixture; mouse E2E was blocked by extension overlay/human intervention and is not claimed verified.
-
-- Added explicit user-only Send suggestion action beside the candidate. Tab still only accepts. Uses guarded insertion, then revalidates exact draft/revision/session before native submit; one candidate cannot send twice, changes fail closed and no submission retry is added.151 checks pass; isolated mock UI confirms one new user message and normal follow-up response via keyboard activation.
-
-- Task-aware reply candidates now read up to6 recent user turns/12 user-assistant text rows, capped at24K text characters with explicit truncation. Prompt prefers concrete progress-oriented replies over deferred acknowledgements; sensitive operations still require confirmation and candidates are never authorization. Excludes system/developer, reasoning, tool and attachment content; recent-context changes invalidate results. Live read-only options confirm contextPolicy v2.148 checks pass; output quality with real Luna remains user-reviewed, not guaranteed by mock tests.
-
-- Suggestions now use an independently selected model, defaulting to available Luna (preferring exact gpt-6-luna); read-only catalog and validated revision-checked saves never change conversation selection. Replaced the separate draft/gear/arrow controls with one left-side Suggestions button and consolidated settings. Candidate presence conditionally hides native placeholder and reserves Tab space.142 checks pass; local UI confirms hidden placeholder, empty actual input and typing discards the candidate. Daily route readback resolves myapi/gpt-6-luna; no paid Luna probe.
-
-- Recover reply-options reads after transient Host/Client update skew with bounded read-only retries and a fresh read when settings opens; successful reads clear their own stale error. No model-generation retries are added. Current live Host options read succeeds; original reported failing action is not captured.135 checks pass.
-
-- Reply candidates now auto-generate after5 idle seconds by default, with a persisted auto switch and0–60s delay. Results stay ghost candidates until unmodified Tab; ordinary input invalidates them. No result popup or auto-send. Host deduplicates automatic attempts per session/source (including failures, latest500 in memory).133 checks pass; local no-network UI confirms candidate-before-input, Tab acceptance and settings save; full real IME/attachment matrix remains partial.
-
-- Per user request, reply drafts now explicitly use low reasoning (not off), accept but exclude reasoning chunks, and allow up to1024 output tokens subject to model limits. Session choice and send behavior stay unchanged. 119 checks pass; no automatic paid verification.
-
-- Explicit composer reply-draft button: one bounded request to the previous assistant model with thinking off, no tools/session-selection changes and no auto-send. Empty-input/attachment/IME/async-revision guards preserve user edits; conflicts expose a manual-copy draft. Local no-network acceptance confirms off/256-token/no-tool call and unchanged High session selection. Independent draft cost is not included in conversation totals; see docs/reply-draft.md. 118 checks pass; real async IME/attachment matrix remains partial.
-
-- Show current/latest turn time and cumulative session running time together in the footer, including the active turn but excluding idle gaps. Clock details expose both values. Guard duplicate end events from double-counting; projection stateVersion 7 replays the corrected fold. User accepted the local display; 108 checks pass.
-
-- Permanent session deletion is planned as a host lifecycle extension, not shipped or simulated by archive.
+### Verification and exclusions
+-153 regression checks pass. Isolated no-network model UI verified candidate/native text geometry, accept-only keyboard/button activation, typing hides and clearing restores, and native editor hit-testing under the overlay.
+- Automated physical mouse click was blocked by the BrowserSkill overlay; complete mouse/IME/attachment matrix and real paid Luna output-quality validation are not claimed. The user accepted the local version for release.
+- Suite packaging remains experimental and is excluded from the npm artifact. No standalone dependency removal, permanent session deletion or Saturn host patch is shipped.
 
 ## [1.6.0] - 2026-10-30
 
@@ -111,3 +107,5 @@ First public release, extracted from the locally developed 1.4.0 workbench.
 
 [1.5.0]: https://github.com/ForceMind/dsh-atelier/releases/tag/v1.5.0
 [1.4.1]: https://github.com/ForceMind/dsh-atelier/releases/tag/v1.4.1
+
+[1.7.0]: https://github.com/ForceMind/dsh-atelier/releases/tag/v1.7.0
