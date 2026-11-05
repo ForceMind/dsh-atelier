@@ -1,6 +1,13 @@
 # 后续计划 / Roadmap
 
-状态核对：2026-10-30。此页区分已实现未发布、已确定未完成与仅供选择的建议；不是自动执行授权。
+状态核对：2026-11-05。此页区分已实现未发布、已确定未完成与仅供选择的建议；不是自动执行授权。
+
+## 已发布1.7.0
+
+- [x] npm1.7.0／latest、GitHub v1.7.0发布及精确下载包校验通过，153项回归、Node22／24 CI通过；正式包已在全新隔离rc.5 profile安装启动验证。
+- [x] 当前发布包含上下文回复候选、独立Luna／low模型选择、默认自动5秒、0–60秒开关设置、鼠标／键盘Tab只采纳、编辑隐藏删空恢复及本轮＋累计运行时间。
+- [ ] 市场更新PR [12218](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/pull/12218)待合并与索引刷新，最新观测仍返回1.6.0。可直接按包名安装1.7.0。完整核验见[发布记录](RELEASE-1.7.0.md)。
+
 
 ## 已发布 1.6.0
 
@@ -41,16 +48,16 @@
 
 ## 已评估，不代表已批准实施
 
-- [x] 2026-11-02 本地新增“设置 → 整合与依赖”：统一上下文洞察／插件管理导航，明确四个插件职责和保留要求。105 项测试通过，当前 rc.5 Client 已确认设置插槽注册，修复 layout 注入范围后用户已验收两个跳转。该入口尚未发布到 npm。
+- [x] 2026-11-02 本地新增“设置 → 整合与依赖”：统一上下文洞察／插件管理导航，明确四个插件职责和保留要求。105 项测试通过，当前 rc.5 Client 已确认设置插槽注册，修复 layout 注入范围后用户已验收两个跳转。该入口已随1.7.0发布，仍仅提供导航，不等于依赖替代。
 - [x] 第一批独立思考信息读取：从正式 llm 模型服务与 settings 描述返回支持档位、目录默认与渠道回退，渠道表分开只读显示；不写配置，不调用原插件私有模块。106 项测试通过，本地已加载；实际新增字段待用户验收。
-- [ ] Reasoning Effort / dsh-context 功能迁移与替代验证尚未完成。BrowserSkill 按用户决定保持独立，已从候选依赖、Loader 行和迁移逻辑移出；不卸载现有浏览器插件、CLI 或扩展。当前宿主升级为 0.2.1-rc.5，仍启用本地 Atelier（清单版本1.5.0，源码含后续更新）、BRE0.5.4、BrowserSkill0.3.3、dsh-context0.73.3；未禁用或卸载。保留每个插件的权限、存储与生命周期。
+- [ ] Reasoning Effort / dsh-context 功能迁移与替代验证尚未完成。BrowserSkill 按用户决定保持独立，已从候选依赖、Loader 行和迁移逻辑移出；不卸载现有浏览器插件、CLI 或扩展。当前宿主升级为 0.2.1-rc.5，仍启用本地 Atelier（清单版本1.5.0，源码含后续更新）、BRE0.5.4、BrowserSkill0.4.1、dsh-context0.73.3；未禁用或卸载。保留每个插件的权限、存储与生命周期。
 
 ## 可选建议，未承诺交付
 
-- [x] 2026-11-04 新增显式“回复草稿”：按用户最新选择使用low低强度思考（不是关闭）、使用上一条助手模型、填入空输入框且不自动发送；原off版本本地假模型实测通过；改low后119项测试，当前本地插件已加载，尚未npm发布。费用和完整保护边界见[回复草稿](docs/reply-draft.md)。真实生成中IME／附件竞态仍待完整验收。
+- [x] 回复建议已随1.7.0发布：默认Luna／low、最近任务上下文、自动5秒、0–60秒可设、Tab只采纳、编辑隐藏删空恢复；153项测试。费用及验收边界见[回复建议](docs/reply-draft.md)。
 
 本轮／会话指标切换、预算提醒、日志搜索与手动删除、诊断导出、自动更新提示、自动分时／节假日历史计价、宣传视频和社区推广。需用户选择后再进入确定待办，不能把先前建议当作漏做承诺。
 
 ## English summary
 
-Version 1.6.0 is published on npm (including latest) and GitHub; the downloaded registry tarball matches the reviewed artifact. The supplied Kimi price table is fully recorded; only internal channel/model mapping remains to be checked, not another request for user prices. Independent price verification is optional maintenance, while upstream cache effectiveness remains unproven. Marketplace PR 9524 is merged, and the configured index exposes 1.5.0; the next version needs a separate refresh check. The Saturn source experiment is archived and explicitly deferred from production activation. Reasoning/context integration is still under validation; BrowserSkill is explicitly excluded and retained independently. Optional budget/log/export/update features are suggestions, not delivery promises.
+Version1.7.0 is published on npm/latest and GitHub with byte-identical reviewed artifacts and Node22/24 CI. Marketplace updatePR12218 is submitted but still pending; the configured index currently shows1.6.0. See RELEASE-1.7.0.md. Suite consolidation, permanent deletion and Saturn production activation remain incomplete/deferred; BrowserSkill stays independent.
