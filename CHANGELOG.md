@@ -4,6 +4,8 @@ All notable public-release changes are documented here. Versions follow Semantic
 
 ## [Unreleased]
 
+- Keep a same-source candidate cached while the user edits; clearing input restores it with a fresh guarded insertion span and no new LLM request. Source/session/editor changes still reject restoration. Tab returns to the candidate's bottom-right, without a separate blank action row; only its small button catches pointers.153 checks pass; local fixture verifies typing a then Backspace restores the candidate.
+
 - Fixed regression where candidate overlay intercepted input clicks. Candidate text is now pointer-transparent, native editable hit-area matches text height, and clickable Tab moves into the existing toolbar so no extra blank action row is reserved.151 checks pass; isolated hit-test reaches editor at second-line coordinates and typing a discards candidate without sending. Automatic physical click remains blocked by browser-extension overlay, not claimed verified.
 
 - Multi-line candidates now match the native editor's computed typography, padding and width; measured candidate height reserves composer space instead of overlaying the toolbar. Tab occupies a separate action row; long candidates scroll. Local mock UI verified matching geometry and readable542px viewport, and accept-only activation.150 checks pass; automatic mouse click still blocked by extension overlay.
