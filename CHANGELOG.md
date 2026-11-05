@@ -4,6 +4,8 @@ All notable public-release changes are documented here. Versions follow Semantic
 
 ## [Unreleased]
 
+- Multi-line candidates now match the native editor's computed typography, padding and width; measured candidate height reserves composer space instead of overlaying the toolbar. Tab occupies a separate action row; long candidates scroll. Local mock UI verified matching geometry and readable542px viewport, and accept-only activation.150 checks pass; automatic mouse click still blocked by extension overlay.
+
 - Candidates now have one clickable Tab hint: mouse and keyboard share guarded accept-only logic. Removed Send suggestion and all candidate submit code; native Send is the sole sending action.150 checks pass. The new control rendered in the isolated fixture; mouse E2E was blocked by extension overlay/human intervention and is not claimed verified.
 
 - Added explicit user-only Send suggestion action beside the candidate. Tab still only accepts. Uses guarded insertion, then revalidates exact draft/revision/session before native submit; one candidate cannot send twice, changes fail closed and no submission retry is added.151 checks pass; isolated mock UI confirms one new user message and normal follow-up response via keyboard activation.
