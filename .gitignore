@@ -21,4 +21,7 @@ logs/
 
 # Local release review artifacts
 .release/
+/release-engineering/.inputs/
+/release-engineering/.scratch/
+/release-engineering/.artifacts/
 .DS_Store

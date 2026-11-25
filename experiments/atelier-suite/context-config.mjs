@@ -1,3 +1,4 @@
+import{CONTEXT_CONFIG_KEY}from'./identity.mjs';
 // Suite-owned UI; upstream remains intact. The manager supplies the exact row form.
 export const CONTEXT_FIELDS=[
  {key:'defaultPlacement',zh:'入口位置',en:'Placement',values:['all','tab','sidebar']},
@@ -52,6 +53,6 @@ export function installContextConfig(ctx,React){
    h('footer',null,h('button',{type:'submit',disabled:busy||!ready||!snapshot.writable||!dirty||conflict},busy?t('保存中…','Saving…'):t('保存','Save')),h('button',{type:'button',disabled:busy||!dirty,onClick:cancel},t('取消更改','Cancel changes')),saved&&h('span',{role:'status'},t('已保存','Saved'))));
  }
  return ctx.slots.inject('plugins.row.config',()=>{
-  const disposers=['dsh-context','atelier-suite-context'].map(id=>ctx.slots.register({name:'plugins.row.config',key:'@forcemind/dsh-atelier-suite#'+id},Page));return()=>disposers.forEach(dispose=>dispose());
+   return ctx.slots.register({name:'plugins.row.config',key:CONTEXT_CONFIG_KEY},Page);
  });
 }

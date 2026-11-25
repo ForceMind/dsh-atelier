@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "sourceFiles": {
+    "package.json": "3b53da4cc1ac74e638ad7af7549c020d1e129055a275e9d4d6eb30a3320ce20d",
+    "identity.mjs": "75b2ddc0b629e44196132eaf35fd2ab7c9303d8943aa33c0f758475c513998d1",
+    "cordis.patch.yml": "1a73ae7afaa6616b82a56be953e598907988ef021c18988e2b200afe50ed2c8d",
+    "context-config.mjs": "47163ceac1d717f23a558cbde15b23251613e979fb25bbb50739554afaf68721",
+    "client-render.mjs": "69d79e6f6d3c30bc0be798ef9e1dc332c064810e1bdbef9b2b88ac1b2c8fbd49",
+    "index.js": "984441b113af1452188bd624391fdc13ec5f4b16388458a588339c8f230cc028",
+    "icon.svg": "d6b814b6f91b86b2a8b5d38cba752dcac4d861754a4b697d3370843fc18e6bc9",
+    "locale/en.json": "ea5c552b6d2699d43be4ce8323e24b3e8c54f1e5d070d49d45613055b48fdb18",
+    "locale/zh.json": "66ba6820121ba598afd99389117c5ad2f3e915293cfaf4cc18de5507c8c2e066"
+  },
+  "packages": [
+    {
+      "name": "@deepseek-ai/cosmokit",
+      "version": "1.8.6",
+      "integrity": "sha512-ZSD/fN52L498LBIOYwjIOlaLv5veY6ZEwI2yzvZUKQtctn0QAPqu8tKdJ+OF5+Tv6NBq1U+wJWH+QI6OGy5EvQ==",
+      "filesSha256": "73609542dda64aa8ec6ccf6c7f13e457adfcf3acb6e6885c6c2fead71254e599"
+    },
+    {
+      "name": "@deepseek-ai/schemastery",
+      "version": "3.18.5",
+      "integrity": "sha512-Mnobvqf9rHsZYv4g5edj5ddxS1oF1kIdSlz0DunUgnY3LWG5F26MqvH3YOOsSaodCgyzJ16OMN9O99/s5Crtdw==",
+      "filesSha256": "9fd015b3b3c0ae313d63e8845f4ad7c6f7e7a0886b5b219ae59dd21d6442d86d"
+    },
+    {
+      "name": "@standard-schema/spec",
+      "version": "1.1.0",
+      "integrity": "sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w==",
+      "filesSha256": "77b183433934e9aaa6f1058b1f79e17d77b2aeba6174298a0d8efb7efb6eee9b"
+    },
+    {
+      "name": "dsh-atelier-plugin",
+      "version": "1.7.0",
+      "integrity": "sha512-EIJCmwEb6QFZnCSXqCkY8x8b1dNLpDyjCzmbu8B7PKc0kfYCyvLjiS/tocIWHI0Zu6Z1/jsPQrD6ZW9K0detSQ==",
+      "filesSha256": "c4b37e4e4eceebff51ab16fcddac1a085176f76abe3d4f22f77e913750cdfb5e"
+    },
+    {
+      "name": "dsh-better-reasoning-effort",
+      "version": "0.5.4",
+      "integrity": "sha512-6eoLwXO+oC1/eBr/nuj60tR+MnbaI5ZeWB3btmnsgaEaPeXs/FuTFLWkzTIa3Uzi6OOxabCEMud9/SnfkX81Pg==",
+      "filesSha256": "38b4b3c5c24faa613267643b84dfefc947c2eb49bb16348fee9776827e6463f4"
+    },
+    {
+      "name": "zod",
+      "version": "4.6.7",
+      "integrity": "sha512-g8W2D2kU6a8untc053fX1uVBKzM7yqAxW/3zwk83+6RyF2+SKOuV+c0wBDhUwzV1PaGapmZH+rmcUzPf+3CGwg==",
+      "filesSha256": "32318894ce40ed66f5795b1385219693f3ba66fdf567be382c777125f2680193"
+    }
+  ]
+}

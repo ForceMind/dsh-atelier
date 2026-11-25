@@ -2,6 +2,14 @@
 
 All notable public-release changes are documented here. Versions follow Semantic Versioning; the early DSH integration remains experimental.
 
+## Atelier Suite 0.1.0 — unreleased candidate
+
+This section covers `@forcemind/dsh-atelier-suite`, not a new standalone `dsh-atelier-plugin` version.
+
+- Automatic reply suggestions now distinguish a completed task from an explicitly pending follow-up. The Host can return no suggestion; the Client then shows no candidate or Tab action. Manual drafting and accept-without-send remain available.
+- The Suite bundles Atelier, BRE and Context under their original component IDs. Do not select it alongside their standalone layers. BrowserSkill and GameForge remain independent.
+- A local candidate archive was built and audited. Public release, installation of the final archive, and corroborated Client acceptance are pending. See the [Suite build guide](release-engineering/README.md).
+
 ## [1.7.0] - 2026-11-05
 
 ### Important defaults and compatibility

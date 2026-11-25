@@ -6,6 +6,14 @@
 
 > **Important 1.7.0 default: automatic reply generation is ON, not opt-in.** When the current visible conversation is idle with an empty composer after an assistant text reply, the default **5-second** delay can trigger a billable API call through a dedicated **recommended Luna model at low reasoning**, carrying bounded recent dialogue text. Disable it or change the delay in Suggestions. **Candidates never auto-send**: clicking Tab or pressing Tab only accepts into the composer. **Request/response body capture remains OFF and opt-in.** Original identity and language preference are preserved by default. This is not an anonymizing gateway or invoice system.
 
+## Atelier Suite 0.1.0 candidate (unreleased)
+
+The repository root remains the standalone Atelier plugin; its npm badge does not describe the Suite. For the three-component bundle, see the [build guide](release-engineering/README.md) and [installation guide](release-engineering/recipe/README.release.en.md).
+
+In the Suite, **automatic suggestions can stay silent**. A completion report alone is not a reason to repeat it in the user's voice. A follow-up must be grounded in an outstanding request from the current conversation. Manual drafting is still available; clicking or pressing Tab inserts text but never sends it. An automatic check may use a model call even when it returns no suggestion.
+
+The private RC1 passed isolated Host and synthetic rollback checks. A local 0.1.0 archive has passed content verification, not public installation verification. Client save and suggestion acceptance still need correlated evidence; the Suite has not been published to npm.
+
 ## Features
 
 - **Compact footer:** model/provider, current/latest turn plus cumulative session running time (excluding idle gaps), observable reasoning-stream time, input/output/cache counts and cumulative API-equivalent cost. Icon-aligned metrics, K/M/B numbers and full-value tooltips; no duplicated waiting sentence.
